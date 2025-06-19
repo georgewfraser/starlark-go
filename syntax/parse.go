@@ -408,8 +408,10 @@ func (p *parser) parseLoadStmt() *LoadStmt {
 // parseImportStmt parses a Python-like import statement of the form:
 //
 //	from module import a, b,
+//	from module import a as aa, b as bb,
 //
-// It returns a LoadStmt equivalent to load("module", "a", "b").
+// It returns a LoadStmt equivalent to load("module", "a", "b") or
+// load("module", aa="a", bb="b").
 func (p *parser) parseImportStmt() *LoadStmt {
 	fromPos := p.nextToken() // consume FROM
 
@@ -427,6 +429,7 @@ func (p *parser) parseImportStmt() *LoadStmt {
 	p.consume(IMPORT)
 
 	var from, to []*Ident
+	var endIdent *Ident
 	for {
 		if p.tok == NEWLINE || p.tok == EOF || p.tok == SEMI {
 			break
@@ -434,9 +437,18 @@ func (p *parser) parseImportStmt() *LoadStmt {
 		if p.tok != IDENT {
 			p.in.errorf(p.in.pos, `load operand must be "name" or localname="name" (got %#v)`, p.tok)
 		}
-		id := p.parseIdent()
-		from = append(from, id)
-		to = append(to, id)
+		orig := p.parseIdent()
+		alias := orig
+		if p.tok == AS {
+			p.nextToken()
+			if p.tok != IDENT {
+				p.in.errorf(p.in.pos, `got %#v, want identifier after "as"`, p.tok)
+			}
+			alias = p.parseIdent()
+		}
+		from = append(from, orig)
+		to = append(to, alias)
+		endIdent = alias
 		if p.tok != COMMA {
 			break
 		}
@@ -450,7 +462,7 @@ func (p *parser) parseImportStmt() *LoadStmt {
 		p.in.errorf(p.tokval.pos, "load statement must import at least 1 symbol")
 	}
 
-	end := from[len(from)-1].NamePos.add(from[len(from)-1].Name)
+	end := endIdent.NamePos.add(endIdent.Name)
 	return &LoadStmt{
 		Load:   fromPos,
 		Module: module,
