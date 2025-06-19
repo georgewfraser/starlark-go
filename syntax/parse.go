@@ -407,16 +407,22 @@ func (p *parser) parseLoadStmt() *LoadStmt {
 
 // parseImportStmt parses a Python-like import statement of the form:
 //
-//	from "module" import a, b,
+//	from module import a, b,
 //
 // It returns a LoadStmt equivalent to load("module", "a", "b").
 func (p *parser) parseImportStmt() *LoadStmt {
 	fromPos := p.nextToken() // consume FROM
 
-	if p.tok != STRING {
-		p.in.errorf(p.in.pos, "first operand of load statement must be a string literal")
+	if p.tok != IDENT {
+		p.in.errorf(p.in.pos, "first operand of load statement must be an identifier")
 	}
-	module := p.parsePrimary().(*Literal)
+	moduleIdent := p.parseIdent()
+	module := &Literal{
+		Token:    STRING,
+		TokenPos: moduleIdent.NamePos,
+		Raw:      moduleIdent.Name,
+		Value:    moduleIdent.Name,
+	}
 
 	p.consume(IMPORT)
 
