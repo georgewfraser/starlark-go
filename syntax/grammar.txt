@@ -39,7 +39,10 @@ AssignStmt   = Expression ('=' | '+=' | '-=' | '*=' | '/=' | '//=' | '%=' | '&='
 ExprStmt     = Expression .
 
 LoadStmt = 'load' '(' string {',' [identifier '='] string} [','] ')' .
-ImportStmt = 'from' identifier 'import' identifier ['as' identifier] {',' identifier ['as' identifier]} [','] .
+ImportStmt =
+        'from' identifier 'import' identifier ['as' identifier] {',' identifier ['as' identifier]} [',']
+      | 'import' identifier ['as' identifier]
+      .
 
 Test = LambdaExpr
      | IfExpr

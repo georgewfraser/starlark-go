@@ -190,6 +190,12 @@ load("module", "x",)
 # An import statement allows a trailing comma.
 from module import x,
 ---
+# All import statement variants parse.
+from package import a, b
+from package import a as aa, b as bb
+import package
+import package as pkg
+---
 x = 1 + ### "got newline, want primary expression"
 2 
 ---

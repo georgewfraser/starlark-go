@@ -22,6 +22,9 @@ from repositories import go_repositories
 from go_repository_module import go_repository, new_go_repository
 from go_prefix_module import go_prefix
 from json_module import json_marshal
+from package import a as aa, b as bb
+import package
+import package as pkg
 
 """These are bare-bones Go rules.
 
