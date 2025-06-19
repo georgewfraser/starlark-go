@@ -180,8 +180,12 @@ else:
 			`(LoadStmt Module="foo" From=(a b) To=(aa bb))`},
 		{`if True: from foo import a as aa, b as bb`,
 			`(IfStmt Cond=True True=((LoadStmt Module="foo" From=(a b) To=(aa bb))))`},
+		{`import foo`,
+			`(LoadStmt Module="foo" From=(*) To=(foo))`},
+		{`import foo as bar`,
+			`(LoadStmt Module="foo" From=(*) To=(bar))`},
 		{`def f(x, *args, **kwargs):
-	pass`,
+        pass`,
 			`(DefStmt Name=f Params=(x (UnaryExpr Op=* X=args) (UnaryExpr Op=** X=kwargs)) Body=((BranchStmt Token=pass)))`},
 		{`def f(**kwargs, *args): pass`,
 			`(DefStmt Name=f Params=((UnaryExpr Op=** X=kwargs) (UnaryExpr Op=* X=args)) Body=((BranchStmt Token=pass)))`},

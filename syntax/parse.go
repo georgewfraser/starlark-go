@@ -326,6 +326,8 @@ func (p *parser) parseSmallStmt() Stmt {
 		return p.parseLoadStmt()
 	case FROM:
 		return p.parseImportStmt()
+	case IMPORT:
+		return p.parseImportSimpleStmt()
 	}
 
 	// Assignment
@@ -465,6 +467,55 @@ func (p *parser) parseImportStmt() *LoadStmt {
 	end := endIdent.NamePos.add(endIdent.Name)
 	return &LoadStmt{
 		Load:   fromPos,
+		Module: module,
+		To:     to,
+		From:   from,
+		Rparen: end,
+	}
+}
+
+// parseImportSimpleStmt parses a Python-like import statement of the form:
+//
+//	import module
+//	import module as alias
+//
+// It returns a LoadStmt equivalent to load("module", module="*") or
+// load("module", alias="*").
+func (p *parser) parseImportSimpleStmt() *LoadStmt {
+	importPos := p.nextToken() // consume IMPORT
+
+	if p.tok != IDENT {
+		p.in.errorf(p.in.pos, "first operand of import statement must be an identifier")
+	}
+	moduleIdent := p.parseIdent()
+	module := &Literal{
+		Token:    STRING,
+		TokenPos: moduleIdent.NamePos,
+		Raw:      moduleIdent.Name,
+		Value:    moduleIdent.Name,
+	}
+
+	alias := moduleIdent
+	if p.tok == AS {
+		p.nextToken()
+		if p.tok != IDENT {
+			p.in.errorf(p.in.pos, `got %#v, want identifier after "as"`, p.tok)
+		}
+		alias = p.parseIdent()
+	}
+
+	// Use alias's end position as the statement end.
+	end := alias.NamePos.add(alias.Name)
+
+	from := []*Ident{{
+		NamePos: alias.NamePos,
+		Name:    "*",
+	}}
+
+	to := []*Ident{alias}
+
+	return &LoadStmt{
+		Load:   importPos,
 		Module: module,
 		To:     to,
 		From:   from,
