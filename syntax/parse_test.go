@@ -172,10 +172,10 @@ else:
 			`(LoadStmt Module="" From=(a c) To=(a b))`},
 		{`if True: load("", "a", b="c")`, // load needn't be at toplevel
 			`(IfStmt Cond=True True=((LoadStmt Module="" From=(a c) To=(a b))))`},
-		{`from "" import a, b`,
-			`(LoadStmt Module="" From=(a b) To=(a b))`},
-		{`if True: from "" import a, b`,
-			`(IfStmt Cond=True True=((LoadStmt Module="" From=(a b) To=(a b))))`},
+		{`from foo import a, b`,
+			`(LoadStmt Module="foo" From=(a b) To=(a b))`},
+		{`if True: from foo import a, b`,
+			`(IfStmt Cond=True True=((LoadStmt Module="foo" From=(a b) To=(a b))))`},
 		{`def f(x, *args, **kwargs):
 	pass`,
 			`(DefStmt Name=f Params=(x (UnaryExpr Op=* X=args) (UnaryExpr Op=** X=kwargs)) Body=((BranchStmt Token=pass)))`},
