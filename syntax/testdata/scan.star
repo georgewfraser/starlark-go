@@ -18,6 +18,10 @@ load("//go/private:repositories.bzl", "go_repositories")
 load("//go/private:go_repository.bzl", "go_repository", "new_go_repository")
 load("//go/private:go_prefix.bzl", "go_prefix")
 load("//go/private:json.bzl", "json_marshal")
+from "//go/private:repositories.bzl" import go_repositories
+from "//go/private:go_repository.bzl" import go_repository, new_go_repository
+from "//go/private:go_prefix.bzl" import go_prefix
+from "//go/private:json.bzl" import json_marshal
 
 """These are bare-bones Go rules.
 
