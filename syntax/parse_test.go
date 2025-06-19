@@ -176,6 +176,10 @@ else:
 			`(LoadStmt Module="foo" From=(a b) To=(a b))`},
 		{`if True: from foo import a, b`,
 			`(IfStmt Cond=True True=((LoadStmt Module="foo" From=(a b) To=(a b))))`},
+		{`from foo import a as aa, b as bb`,
+			`(LoadStmt Module="foo" From=(a b) To=(aa bb))`},
+		{`if True: from foo import a as aa, b as bb`,
+			`(IfStmt Cond=True True=((LoadStmt Module="foo" From=(a b) To=(aa bb))))`},
 		{`def f(x, *args, **kwargs):
 	pass`,
 			`(DefStmt Name=f Params=(x (UnaryExpr Op=* X=args) (UnaryExpr Op=** X=kwargs)) Body=((BranchStmt Token=pass)))`},
