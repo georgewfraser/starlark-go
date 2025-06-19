@@ -324,6 +324,8 @@ func (p *parser) parseSmallStmt() Stmt {
 
 	case LOAD:
 		return p.parseLoadStmt()
+	case FROM:
+		return p.parseImportStmt()
 	}
 
 	// Assignment
@@ -400,6 +402,55 @@ func (p *parser) parseLoadStmt() *LoadStmt {
 		To:     to,
 		From:   from,
 		Rparen: rparen,
+	}
+}
+
+// parseImportStmt parses a Python-like import statement of the form:
+//
+//	from "module" import a, b,
+//
+// It returns a LoadStmt equivalent to load("module", "a", "b").
+func (p *parser) parseImportStmt() *LoadStmt {
+	fromPos := p.nextToken() // consume FROM
+
+	if p.tok != STRING {
+		p.in.errorf(p.in.pos, "first operand of load statement must be a string literal")
+	}
+	module := p.parsePrimary().(*Literal)
+
+	p.consume(IMPORT)
+
+	var from, to []*Ident
+	for {
+		if p.tok == NEWLINE || p.tok == EOF || p.tok == SEMI {
+			break
+		}
+		if p.tok != IDENT {
+			p.in.errorf(p.in.pos, `load operand must be "name" or localname="name" (got %#v)`, p.tok)
+		}
+		id := p.parseIdent()
+		from = append(from, id)
+		to = append(to, id)
+		if p.tok != COMMA {
+			break
+		}
+		p.nextToken()
+		if p.tok == NEWLINE || p.tok == EOF || p.tok == SEMI {
+			break // allow trailing comma
+		}
+	}
+
+	if len(to) == 0 {
+		p.in.errorf(p.tokval.pos, "load statement must import at least 1 symbol")
+	}
+
+	end := from[len(from)-1].NamePos.add(from[len(from)-1].Name)
+	return &LoadStmt{
+		Load:   fromPos,
+		Module: module,
+		To:     to,
+		From:   from,
+		Rparen: end,
 	}
 }
 

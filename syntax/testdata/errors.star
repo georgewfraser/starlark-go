@@ -157,6 +157,19 @@ load("a", "x")
 load("a", "x", y2="y")
 load("a", x2="x", "y") # => positional-before-named arg check happens later (!)
 ---
+from "" import ### "load statement must import at least 1 symbol"
+---
+from "" import 1 ### `load operand must be "name" or localname="name" \(got int literal\)`
+---
+from "a" import x # ok
+---
+from 1 import x ### "first operand of load statement must be a string literal"
+---
+# All of these parse.
+from "a" import x
+from "a" import x, y
+from "a" import x,
+---
 # 'load' is not an identifier
 load = 1 ### `got '=', want '\('`
 ---
@@ -173,6 +186,9 @@ def f(load): ### `not an identifier`
 ---
 # A load statement allows a trailing comma.
 load("module", "x",)
+---
+# An import statement allows a trailing comma.
+from "module" import x,
 ---
 x = 1 + ### "got newline, want primary expression"
 2 
