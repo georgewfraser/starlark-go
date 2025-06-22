@@ -1,0 +1,21 @@
+name: Build and Test
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.22.x
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
