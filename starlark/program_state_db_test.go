@@ -11,6 +11,9 @@ func TestProgramStateDB(t *testing.T) {
 
 	// statement 0
 	db.reset(0)
+	if rs := db.reads(0); len(rs) != 0 {
+		t.Fatalf("reads stmt0 after reset = %v, want empty", rs)
+	}
 	db.put(0, 0, String("foo"))
 
 	if got := db.get(0, 0); got != String("foo") {
@@ -19,9 +22,15 @@ func TestProgramStateDB(t *testing.T) {
 	if val := db.get(1, 0); val != nil {
 		t.Fatalf("get g1 stmt0 = %v, want nil", val)
 	}
+	if rs := db.reads(0); len(rs) != 1 || rs[0][0] != 0 || db.value(rs[0][1]) != String("foo") {
+		t.Fatalf("reads stmt0 = %v, want [(0,foo)]", rs)
+	}
 
 	// statement 1
 	db.reset(1)
+	if rs := db.reads(1); len(rs) != 0 {
+		t.Fatalf("reads stmt1 after reset = %v, want empty", rs)
+	}
 	db.put(1, 1, String("bar"))
 
 	if got := db.get(0, 1); got != String("foo") {
@@ -30,9 +39,15 @@ func TestProgramStateDB(t *testing.T) {
 	if got := db.get(1, 1); got != String("bar") {
 		t.Fatalf("get g1 stmt1 = %v, want bar", got)
 	}
+	if rs := db.reads(1); len(rs) != 2 || db.value(rs[0][1]) != String("foo") || db.value(rs[1][1]) != String("bar") {
+		t.Fatalf("reads stmt1 = %v, want two entries foo/bar", rs)
+	}
 
 	// statement 2
 	db.reset(2)
+	if rs := db.reads(2); len(rs) != 0 {
+		t.Fatalf("reads stmt2 after reset = %v, want empty", rs)
+	}
 	db.put(0, 2, String("baz"))
 
 	if got := db.get(0, 2); got != String("baz") {
@@ -40,6 +55,9 @@ func TestProgramStateDB(t *testing.T) {
 	}
 	if got := db.get(1, 2); got != String("bar") {
 		t.Fatalf("get g1 stmt2 = %v, want bar", got)
+	}
+	if rs := db.reads(2); len(rs) != 2 || db.value(rs[0][1]) != String("baz") || db.value(rs[1][1]) != String("bar") {
+		t.Fatalf("reads stmt2 = %v, want two entries baz/bar", rs)
 	}
 }
 
