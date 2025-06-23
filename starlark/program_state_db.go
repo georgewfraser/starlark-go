@@ -72,11 +72,12 @@ func (db *programStateDB) get(global, stmt int) interned {
 	first := global * db.numStatements
 	for ; i >= first; i-- {
 		if id := db.globals[i]; id != 0 {
-			db.readset[global*db.numStatements+stmt] = id
+			if db.readset[global*db.numStatements+stmt] == 0 {
+				db.readset[global*db.numStatements+stmt] = id
+			}
 			return id
 		}
 	}
-	db.readset[global*db.numStatements+stmt] = 0
 	return 0
 }
 
