@@ -482,7 +482,7 @@ func ExecREPLChunk(f *syntax.File, thread *Thread, globals StringDict) error {
 	// Initialize module globals from parameter.
 	for i, id := range prog.compiled.Globals {
 		if v := globals[id.Name]; v != nil {
-			toplevel.module.globals.putInitial(i, v)
+			toplevel.module.globals.input(i, v)
 		}
 	}
 
@@ -490,8 +490,8 @@ func ExecREPLChunk(f *syntax.File, thread *Thread, globals StringDict) error {
 
 	// Reflect changes to globals back to parameter, even after an error.
 	for i, id := range prog.compiled.Globals {
-		if v := toplevel.module.globals.getLast(i); v != nil {
-			globals[id.Name] = v
+		if v := toplevel.module.globals.last(i); v != 0 {
+			globals[id.Name] = toplevel.module.globals.value(v)
 		}
 	}
 

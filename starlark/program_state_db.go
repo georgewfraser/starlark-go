@@ -23,6 +23,8 @@ type programStateDB struct {
 	numGlobals int
 	// Total number of statements in the program.
 	numStatements int
+	// Values of globals before statement 0 executes.
+	inputs []interned
 	// Mapping of (global, statement) to an interned value index. The layout
 	// is per-global blocks so that all versions of a variable are
 	// contiguous.
@@ -33,8 +35,7 @@ type programStateDB struct {
 	readset []interned
 	// Intern table of values. Index 0 is reserved to represent "use the
 	// previous value" in globals and to denote "not read" in the read set.
-	values  []Value
-	initial []interned
+	values []Value
 }
 
 // newProgramStateDB returns a new programStateDB capable of storing the values
@@ -43,10 +44,10 @@ func newProgramStateDB(numGlobals, numStatements int) *programStateDB {
 	db := &programStateDB{
 		numGlobals:    numGlobals,
 		numStatements: numStatements,
+		inputs:        make([]interned, numGlobals),
 		globals:       make([]interned, numGlobals*numStatements),
 		readset:       make([]interned, numGlobals*numStatements),
 		values:        make([]Value, 1), // values[0] unused
-		initial:       make([]interned, numGlobals),
 	}
 	return db
 }
@@ -80,13 +81,18 @@ func (db *programStateDB) get(global, stmt int) interned {
 			return id
 		}
 	}
-	if id := db.initial[global]; id != 0 {
+	if id := db.inputs[global]; id != 0 {
 		if db.readset[global*db.numStatements+stmt] == 0 {
 			db.readset[global*db.numStatements+stmt] = id
 		}
 		return id
 	}
 	return 0
+}
+
+// last returns the last set value of the specified global variable.
+func (db *programStateDB) last(global int) interned {
+	return db.get(global, db.numStatements-1)
 }
 
 // reads returns the read set for the specified statement as a slice of
@@ -124,22 +130,9 @@ func (db *programStateDB) modified(stmt int) bool {
 	return false
 }
 
-// putInitial sets the initial value of a global variable before statement 0 executes.
-func (db *programStateDB) putInitial(global int, value Value) {
+// input sets the initial value of a global variable before statement 0 executes.
+func (db *programStateDB) input(global int, value Value) {
 	db.values = append(db.values, value)
 	id := interned(len(db.values) - 1)
-	db.initial[global] = id
-}
-
-// getLast returns the last set value of the specified global variable.
-func (db *programStateDB) getLast(global int) Value {
-	for stmt := db.numStatements - 1; stmt >= 0; stmt-- {
-		if id := db.globals[global*db.numStatements+stmt]; id != 0 {
-			return db.values[int(id)]
-		}
-	}
-	if id := db.initial[global]; id != 0 {
-		return db.values[int(id)]
-	}
-	return nil
+	db.inputs[global] = id
 }
