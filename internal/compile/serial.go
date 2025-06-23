@@ -45,6 +45,7 @@ package compile
 //	numkwonlyparams	varint
 //	hasvarargs	varint (0 or 1)
 //	haskwargs	varint (0 or 1)
+//      numstatements   varint
 //
 // Ident:
 //	filename	string
@@ -201,6 +202,7 @@ func (e *encoder) function(fn *Funcode) {
 	e.int(fn.NumKwonlyParams)
 	e.int(b2i(fn.HasVarargs))
 	e.int(b2i(fn.HasKwargs))
+	e.int(fn.NumStatements)
 }
 
 func b2i(b bool) int {
@@ -380,6 +382,7 @@ func (d *decoder) function() *Funcode {
 	numKwonlyParams := d.int()
 	hasVarargs := d.int() != 0
 	hasKwargs := d.int() != 0
+	numStatements := d.int()
 	return &Funcode{
 		// Prog is filled in later.
 		Pos:             id.Pos,
@@ -395,5 +398,6 @@ func (d *decoder) function() *Funcode {
 		NumKwonlyParams: numKwonlyParams,
 		HasVarargs:      hasVarargs,
 		HasKwargs:       hasKwargs,
+		NumStatements:   numStatements,
 	}
 }

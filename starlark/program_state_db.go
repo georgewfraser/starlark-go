@@ -33,7 +33,8 @@ type programStateDB struct {
 	readset []interned
 	// Intern table of values. Index 0 is reserved to represent "use the
 	// previous value" in globals and to denote "not read" in the read set.
-	values []Value
+	values  []Value
+	initial []interned
 }
 
 // newProgramStateDB returns a new programStateDB capable of storing the values
@@ -45,6 +46,7 @@ func newProgramStateDB(numGlobals, numStatements int) *programStateDB {
 		globals:       make([]interned, numGlobals*numStatements),
 		readset:       make([]interned, numGlobals*numStatements),
 		values:        make([]Value, 1), // values[0] unused
+		initial:       make([]interned, numGlobals),
 	}
 	return db
 }
@@ -77,6 +79,12 @@ func (db *programStateDB) get(global, stmt int) interned {
 			}
 			return id
 		}
+	}
+	if id := db.initial[global]; id != 0 {
+		if db.readset[global*db.numStatements+stmt] == 0 {
+			db.readset[global*db.numStatements+stmt] = id
+		}
+		return id
 	}
 	return 0
 }
@@ -114,4 +122,24 @@ func (db *programStateDB) modified(stmt int) bool {
 		}
 	}
 	return false
+}
+
+// putInitial sets the initial value of a global variable before statement 0 executes.
+func (db *programStateDB) putInitial(global int, value Value) {
+	db.values = append(db.values, value)
+	id := interned(len(db.values) - 1)
+	db.initial[global] = id
+}
+
+// getLast returns the last set value of the specified global variable.
+func (db *programStateDB) getLast(global int) Value {
+	for stmt := db.numStatements - 1; stmt >= 0; stmt-- {
+		if id := db.globals[global*db.numStatements+stmt]; id != 0 {
+			return db.values[int(id)]
+		}
+	}
+	if id := db.initial[global]; id != 0 {
+		return db.values[int(id)]
+	}
+	return nil
 }
