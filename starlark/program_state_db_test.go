@@ -76,6 +76,58 @@ func TestProgramStateDBInterning(t *testing.T) {
 	}
 }
 
+// TestProgramStateDBReadWriteSameGlobal verifies that the readset records the
+// value from the first read of a global even when it is subsequently written
+// and read again within the same statement.
+func TestProgramStateDBReadWriteSameGlobal(t *testing.T) {
+	db := newProgramStateDB(1, 2)
+
+	// statement 0
+	db.reset(0)
+	db.put(0, 0, String("foo"))
+
+	// statement 1
+	db.reset(1)
+
+	if got := db.value(db.get(0, 1)); got != String("foo") {
+		t.Fatalf("first get = %v, want foo", got)
+	}
+
+	db.put(0, 1, String("bar"))
+
+	if got := db.value(db.get(0, 1)); got != String("bar") {
+		t.Fatalf("second get = %v, want bar", got)
+	}
+
+	rs := db.reads(1)
+	if len(rs) != 1 || rs[0].global() != 0 || db.value(rs[0].value()) != String("foo") {
+		t.Fatalf("reads stmt1 = %v, want [(0,foo)]", rs)
+	}
+}
+
+// TestProgramStateDBWriteThenRead verifies that a read that occurs after a
+// write in the same statement records the written value.
+func TestProgramStateDBWriteThenRead(t *testing.T) {
+	db := newProgramStateDB(1, 2)
+
+	// statement 0
+	db.reset(0)
+	db.put(0, 0, String("foo"))
+
+	// statement 1
+	db.reset(1)
+	db.put(0, 1, String("bar"))
+
+	if got := db.value(db.get(0, 1)); got != String("bar") {
+		t.Fatalf("get = %v, want bar", got)
+	}
+
+	rs := db.reads(1)
+	if len(rs) != 1 || rs[0].global() != 0 || db.value(rs[0].value()) != String("bar") {
+		t.Fatalf("reads stmt1 = %v, want [(0,bar)]", rs)
+	}
+}
+
 // TestProgramStateDBModified verifies detection of changed reads.
 func TestProgramStateDBModified(t *testing.T) {
 	// x = 1
