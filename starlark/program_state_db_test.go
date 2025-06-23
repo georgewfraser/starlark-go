@@ -22,7 +22,7 @@ func TestProgramStateDB(t *testing.T) {
 	if val := db.value(db.get(1, 0)); val != nil {
 		t.Fatalf("get g1 stmt0 = %v, want nil", val)
 	}
-	if rs := db.reads(0); len(rs) != 1 || rs[0][0] != 0 || db.value(rs[0][1]) != String("foo") {
+	if rs := db.reads(0); len(rs) != 1 || rs[0].global() != 0 || db.value(rs[0].value()) != String("foo") {
 		t.Fatalf("reads stmt0 = %v, want [(0,foo)]", rs)
 	}
 
@@ -39,7 +39,7 @@ func TestProgramStateDB(t *testing.T) {
 	if got := db.value(db.get(1, 1)); got != String("bar") {
 		t.Fatalf("get g1 stmt1 = %v, want bar", got)
 	}
-	if rs := db.reads(1); len(rs) != 2 || db.value(rs[0][1]) != String("foo") || db.value(rs[1][1]) != String("bar") {
+	if rs := db.reads(1); len(rs) != 2 || db.value(rs[0].value()) != String("foo") || db.value(rs[1].value()) != String("bar") {
 		t.Fatalf("reads stmt1 = %v, want two entries foo/bar", rs)
 	}
 
@@ -56,7 +56,7 @@ func TestProgramStateDB(t *testing.T) {
 	if got := db.value(db.get(1, 2)); got != String("bar") {
 		t.Fatalf("get g1 stmt2 = %v, want bar", got)
 	}
-	if rs := db.reads(2); len(rs) != 2 || db.value(rs[0][1]) != String("baz") || db.value(rs[1][1]) != String("bar") {
+	if rs := db.reads(2); len(rs) != 2 || db.value(rs[0].value()) != String("baz") || db.value(rs[1].value()) != String("bar") {
 		t.Fatalf("reads stmt2 = %v, want two entries baz/bar", rs)
 	}
 }

@@ -4,6 +4,17 @@ package starlark
 // integer keeps the backing arrays compact.
 type interned uint16
 
+// read is a packed representation of a variable ID and the interned value read
+// from that variable. The high 16 bits store the variable ID and the low 16
+// bits store the interned value ID.
+type read uint32
+
+// global returns the variable ID portion of the read.
+func (r read) global() int { return int(uint16(uint32(r) >> 16)) }
+
+// value returns the interned value portion of the read.
+func (r read) value() interned { return interned(uint16(uint32(r))) }
+
 // programStateDB tracks the values of global variables after each top-level
 // statement of a program. Values are interned so that repeated values use the
 // same storage.
@@ -72,13 +83,13 @@ func (db *programStateDB) get(global, stmt int) interned {
 // reads returns the read set for the specified statement as a slice of
 // (global, valueID) pairs. Only variables that were actually read are
 // included in the result.
-func (db *programStateDB) reads(stmt int) [][2]interned {
-	var rs [][2]interned
+func (db *programStateDB) reads(stmt int) []read {
+	var rs []read
 	base := stmt
 	for g := 0; g < db.numGlobals; g++ {
 		id := db.readset[g*db.numStatements+base]
 		if id != 0 {
-			rs = append(rs, [2]interned{interned(g), id})
+			rs = append(rs, read(uint32(g)<<16|uint32(id)))
 		}
 	}
 	return rs
