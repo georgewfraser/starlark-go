@@ -706,7 +706,7 @@ type Function struct {
 type module struct {
 	program     *compile.Program
 	predeclared StringDict
-	globals     []Value
+	globals     *programStateDB
 	constants   []Value
 }
 
@@ -715,7 +715,7 @@ type module struct {
 func (m *module) makeGlobalDict() StringDict {
 	r := make(StringDict, len(m.program.Globals))
 	for i, id := range m.program.Globals {
-		if v := m.globals[i]; v != nil {
+		if v := m.globals.getLast(i); v != nil {
 			r[id.Name] = v
 		}
 	}

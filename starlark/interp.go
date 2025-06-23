@@ -135,6 +135,7 @@ loop:
 		switch op {
 		case compile.STATEMENT:
 			thread.stmt = int(arg)
+			fn.module.globals.reset(int(arg))
 
 		case compile.NOP:
 			// nop
@@ -597,7 +598,7 @@ loop:
 			sp--
 
 		case compile.SETGLOBAL:
-			fn.module.globals[arg] = stack[sp-1]
+			fn.module.globals.put(int(arg), thread.stmt, stack[sp-1])
 			sp--
 
 		case compile.LOCAL:
@@ -632,7 +633,8 @@ loop:
 			sp++
 
 		case compile.GLOBAL:
-			x := fn.module.globals[arg]
+			id := fn.module.globals.get(int(arg), thread.stmt)
+			x := fn.module.globals.value(id)
 			if x == nil {
 				err = fmt.Errorf("global variable %s referenced before assignment", f.Prog.Globals[arg].Name)
 				break loop

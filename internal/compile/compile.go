@@ -343,6 +343,7 @@ type Funcode struct {
 	NumParams             int
 	NumKwonlyParams       int
 	HasVarargs, HasKwargs bool
+	NumStatements         int // number of STATEMENT opcodes in this function
 
 	// -- transient state --
 
@@ -542,6 +543,7 @@ func (pcomp *pcomp) function(name string, pos syntax.Position, stmts []syntax.St
 	entry := fcomp.newBlock()
 	fcomp.block = entry
 	if topLevel {
+		fcomp.fn.NumStatements = len(stmts)
 		fcomp.stmtsTopLevel(stmts)
 	} else {
 		fcomp.stmts(stmts)
