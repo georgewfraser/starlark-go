@@ -3,7 +3,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -14,8 +14,5 @@ jobs:
         with:
           go-version: 1.22.x
 
-      - name: Build
-        run: go build ./...
-
-      - name: Test
-        run: go test ./...
+      - name: Run Tests
+        run: ./internal/test.sh
