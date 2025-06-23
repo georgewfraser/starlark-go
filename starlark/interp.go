@@ -133,6 +133,9 @@ loop:
 		}
 
 		switch op {
+		case compile.STATEMENT:
+			thread.stmt = int(arg)
+
 		case compile.NOP:
 			// nop
 

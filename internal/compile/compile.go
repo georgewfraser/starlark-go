@@ -145,9 +145,10 @@ const (
 	CALL_VAR    // fn positional named *args          CALL_VAR<n>    result
 	CALL_KW     // fn positional named       **kwargs CALL_KW<n>     result
 	CALL_VAR_KW // fn positional named *args **kwargs CALL_VAR_KW<n> result
+	STATEMENT   //              - STATEMENT<stmt>      -
 
 	OpcodeArgMin = JMP
-	OpcodeMax    = CALL_VAR_KW
+	OpcodeMax    = STATEMENT
 )
 
 // TODO(adonovan): add dynamic checks for missing opcodes in the tables below.
@@ -160,6 +161,7 @@ var opcodeNames = [...]string{
 	CALL_KW:      "call_kw ",
 	CALL_VAR:     "call_var",
 	CALL_VAR_KW:  "call_var_kw",
+	STATEMENT:    "statement",
 	CIRCUMFLEX:   "circumflex",
 	CJMP:         "cjmp",
 	CONSTANT:     "constant",
@@ -235,6 +237,7 @@ var stackEffect = [...]int8{
 	CALL_KW:      variableStackEffect,
 	CALL_VAR:     variableStackEffect,
 	CALL_VAR_KW:  variableStackEffect,
+	STATEMENT:    0,
 	CIRCUMFLEX:   -1,
 	CJMP:         -1,
 	CONSTANT:     +1,
@@ -505,12 +508,12 @@ func File(opts *syntax.FileOptions, stmts []syntax.Stmt, pos syntax.Position, na
 		constants: make(map[interface{}]uint32),
 		functions: make(map[*Funcode]uint32),
 	}
-	pcomp.prog.Toplevel = pcomp.function(name, pos, stmts, locals, nil)
+	pcomp.prog.Toplevel = pcomp.function(name, pos, stmts, locals, nil, true)
 
 	return pcomp.prog
 }
 
-func (pcomp *pcomp) function(name string, pos syntax.Position, stmts []syntax.Stmt, locals, freevars []*resolve.Binding) *Funcode {
+func (pcomp *pcomp) function(name string, pos syntax.Position, stmts []syntax.Stmt, locals, freevars []*resolve.Binding, topLevel bool) *Funcode {
 	fcomp := &fcomp{
 		pcomp: pcomp,
 		pos:   pos,
@@ -538,7 +541,11 @@ func (pcomp *pcomp) function(name string, pos syntax.Position, stmts []syntax.St
 	// Convert AST to a CFG of instructions.
 	entry := fcomp.newBlock()
 	fcomp.block = entry
-	fcomp.stmts(stmts)
+	if topLevel {
+		fcomp.stmtsTopLevel(stmts)
+	} else {
+		fcomp.stmts(stmts)
+	}
 	if fcomp.block != nil {
 		fcomp.emit(NONE)
 		fcomp.emit(RETURN)
@@ -1043,6 +1050,15 @@ func (fcomp *fcomp) lookup(id *syntax.Ident) {
 
 func (fcomp *fcomp) stmts(stmts []syntax.Stmt) {
 	for _, stmt := range stmts {
+		fcomp.stmt(stmt)
+	}
+}
+
+// stmtsTopLevel is like stmts but emits a STATEMENT opcode
+// before each statement with its index.
+func (fcomp *fcomp) stmtsTopLevel(stmts []syntax.Stmt) {
+	for i, stmt := range stmts {
+		fcomp.emit1(STATEMENT, uint32(i))
 		fcomp.stmt(stmt)
 	}
 }
@@ -1849,7 +1865,7 @@ func (fcomp *fcomp) function(f *resolve.Function) {
 
 	fcomp.emit1(MAKETUPLE, uint32(ndefaults+len(f.FreeVars)))
 
-	funcode := fcomp.pcomp.function(f.Name, f.Pos, f.Body, f.Locals, f.FreeVars)
+	funcode := fcomp.pcomp.function(f.Name, f.Pos, f.Body, f.Locals, f.FreeVars, false)
 
 	if debug {
 		// TODO(adonovan): do compilations sequentially not as a tree,

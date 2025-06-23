@@ -68,6 +68,9 @@ type Thread struct {
 
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
+
+	// stmt records the index of the currently executing top-level statement.
+	stmt int
 }
 
 // ExecutionSteps returns the current value of Steps.

@@ -92,6 +92,10 @@ func disassemble(f *Funcode) string {
 			}
 		}
 
+		if op == STATEMENT {
+			continue
+		}
+
 		if out.Len() > 0 {
 			out.WriteString("; ")
 		}
