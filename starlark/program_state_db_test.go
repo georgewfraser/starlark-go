@@ -127,3 +127,49 @@ func TestProgramStateDBWriteThenRead(t *testing.T) {
 		t.Fatalf("reads stmt1 = %v, want [(0,bar)]", rs)
 	}
 }
+
+// TestProgramStateDBModified verifies detection of changed reads.
+func TestProgramStateDBModified(t *testing.T) {
+	// x = 1
+	// y = x + 1
+	// z = 10
+	const numGlobals = 3
+	const numStatements = 3
+
+	db := newProgramStateDB(numGlobals, numStatements)
+
+	// initial run
+	// x = 1
+	db.reset(0)
+	db.put(0, 0, MakeInt(1))
+
+	// y = x + 1
+	db.reset(1)
+	db.get(0, 1)             // read x
+	db.put(1, 1, MakeInt(2)) // write x + 1
+
+	// z = 10
+	db.reset(2)
+	db.put(2, 2, MakeInt(10))
+
+	// second run
+	// x = 2
+	db.reset(0)
+	db.put(0, 0, MakeInt(2))
+
+	// y = x + 1
+	if !db.modified(1) {
+		t.Fatalf("y = x + 1 should be marked modified after x change")
+	}
+	db.reset(1)
+	db.get(0, 1)             // read x
+	db.put(1, 1, MakeInt(3)) // write x + 1
+
+	// z = 10
+	if db.modified(2) {
+		t.Fatalf("z = 10 should not be marked modified after x change")
+	}
+	if db.value(db.get(2, 2)) != MakeInt(10) {
+		t.Fatalf("get z = %v, want 10", db.get(2, 2))
+	}
+}
