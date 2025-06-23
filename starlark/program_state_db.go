@@ -103,3 +103,14 @@ func (db *programStateDB) value(id interned) Value {
 	}
 	return db.values[idx]
 }
+
+// modified reports whether any variable read by the specified statement
+// has a different value in the current program state.
+func (db *programStateDB) modified(stmt int) bool {
+	for _, r := range db.reads(stmt) {
+		if r.value() != db.get(r.global(), stmt-1) {
+			return true
+		}
+	}
+	return false
+}
