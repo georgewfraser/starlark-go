@@ -490,7 +490,7 @@ func ExecREPLChunk(f *syntax.File, thread *Thread, globals StringDict) error {
 
 	// Reflect changes to globals back to parameter, even after an error.
 	for i, id := range prog.compiled.Globals {
-		if v := toplevel.module.globals.last(i); v != 0 {
+		if v := toplevel.module.globals.last(i); v != nil {
 			globals[id.Name] = toplevel.module.globals.value(v)
 		}
 	}

@@ -715,7 +715,7 @@ type module struct {
 func (m *module) makeGlobalDict() StringDict {
 	r := make(StringDict, len(m.program.Globals))
 	for i, id := range m.program.Globals {
-		if v := m.globals.last(i); v != 0 {
+		if v := m.globals.last(i); v != nil {
 			r[id.Name] = m.globals.value(v)
 		}
 	}

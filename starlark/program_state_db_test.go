@@ -66,13 +66,21 @@ func TestProgramStateDBInterning(t *testing.T) {
 	db := newProgramStateDB(1, 3)
 	db.reset(0)
 	db.put(0, 0, String("x"))
+	id1 := db.globals[0*db.numStatements+0]
+
 	db.reset(1)
 	db.put(0, 1, String("y"))
+	id2 := db.globals[0*db.numStatements+1]
+
 	db.reset(2)
 	db.put(0, 2, String("x"))
+	id3 := db.globals[0*db.numStatements+2]
 
-	if len(db.values) != 4 { // nil + three puts
-		t.Fatalf("got %d interned values, want 4", len(db.values))
+	if id1 == id3 {
+		t.Fatalf("identical values should yield distinct interned ids")
+	}
+	if id1 == id2 || id2 == id3 {
+		t.Fatalf("different values should yield distinct interned ids")
 	}
 }
 
