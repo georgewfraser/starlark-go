@@ -1,24 +1,23 @@
 package incremental
 
-import "go.starlark.net/starlark"
+import (
+	"encoding/binary"
+	"slices"
 
-// MAX_INTERNED is calculated so the empty memo array is 1 MB in size.
-const MAX_INTERNED = (1 << 20) / (2 * 8) // 1 MB / (2 * size of Record)
+	"unsafe"
+
+	"github.com/cespare/xxhash/v2"
+	"go.starlark.net/starlark"
+)
+
+// CACHE_SIZE is calculated so the empty memo array is 1 MB in size.
+const CACHE_SIZE = (1 << 20) / (4 * 8) // 1 MB / (size of Record)
 
 type ProgramStateDB struct {
 	// memo stores the cached results of previous function calls.
 	// It is a quasi-perfect hash table where the key is a hash of the function identifier and its arguments.
 	// In the event of a hash collision we evict the existing entry and replace it with the new one.
-	memo [MAX_INTERNED]Record
-}
-
-// key represents a unique identifier for a function call in the program state.
-// The arguments are part of the key but there are implicit arguments that are not.
-// These implicit arguments are captured variables and mutables in the interior of explicit or implicit arguments.
-// The implicit arguments are part of the record and are validated against the current state of the program.
-type key struct {
-	function int        // id of the function
-	args     []Interned // arguments to the function, interned values
+	memo [CACHE_SIZE]Record
 }
 
 // Record memoizes the result of a function call along with the values read
@@ -51,17 +50,46 @@ type Read struct {
 type Interned *starlark.Value
 
 func NewProgramStateDB() *ProgramStateDB {
-	panic("todo")
+	return &ProgramStateDB{}
 }
 
 func (db *ProgramStateDB) Intern(value starlark.Value) Interned {
-	panic("todo")
+	v := value
+	return &v
 }
 
-func (db *ProgramStateDB) Get(function int, args []Interned) Record {
-	panic("todo")
+func (db *ProgramStateDB) Get(function int, args []Interned) *Record {
+	idx := hash(function, args)
+	rec := &db.memo[idx]
+
+	// If the entry is empty, return nil.
+	if rec.result == nil {
+		return nil
+	}
+
+	// If the entry is a collision, return nil.
+	if rec.function != function || !slices.Equal(rec.args, args) {
+		return nil
+	}
+
+	return rec
 }
 
 func (db *ProgramStateDB) Put(function int, args []Interned, reads []Read, value Interned) {
-	panic("todo")
+	idx := hash(function, args)
+	db.memo[idx] = Record{function: function, args: args, reads: reads, result: value}
+}
+
+// index computes the position within the memo table for the given key.
+// hash computes the memo table index for the given key.
+func hash(function int, args []Interned) int {
+	var buf [8]byte
+	h := xxhash.New()
+	binary.LittleEndian.PutUint64(buf[:], uint64(function))
+	_, _ = h.Write(buf[:])
+	for _, a := range args {
+		binary.LittleEndian.PutUint64(buf[:], uint64(uintptr(unsafe.Pointer(a))))
+		_, _ = h.Write(buf[:])
+	}
+	return int(h.Sum64() % uint64(CACHE_SIZE))
 }

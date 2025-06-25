@@ -3,6 +3,7 @@ module go.starlark.net
 go 1.19
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/google/go-cmp v0.5.5
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
