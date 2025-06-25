@@ -695,6 +695,7 @@ func (*stringCodepointsIterator) Done() {}
 // A Function is a function defined by a Starlark def statement or lambda expression.
 // The initialization behavior of a Starlark module is also represented by a Function.
 type Function struct {
+	id       int
 	funcode  *compile.Funcode
 	module   *module
 	defaults Tuple

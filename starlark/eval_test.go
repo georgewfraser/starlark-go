@@ -1019,7 +1019,8 @@ func TestDeps(t *testing.T) {
 		dot := strings.IndexByte(pkg, '.')
 		if 0 < dot && dot < slash {
 			if strings.HasPrefix(pkg, "go.starlark.net/") ||
-				strings.HasPrefix(pkg, "golang.org/x/sys/") {
+				strings.HasPrefix(pkg, "golang.org/x/sys/") ||
+				strings.HasPrefix(pkg, "github.com/cespare/xxhash/v2") {
 				continue // permitted dependencies
 			}
 			t.Errorf("new interpreter dependency: %s", pkg)

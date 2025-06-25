@@ -545,6 +545,7 @@ loop:
 			defaults := tuple[:n:n]
 			freevars := tuple[n:]
 			stack[sp-1] = &Function{
+				id:       int(arg),
 				funcode:  funcode,
 				module:   fn.module,
 				defaults: defaults,

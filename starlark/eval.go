@@ -66,6 +66,9 @@ type Thread struct {
 	// They are accessible to the client but not to any Starlark program.
 	locals map[string]interface{}
 
+	// cache memoizes function calls during incremental execution.
+	cache *ProgramStateDB
+
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
 }
@@ -518,6 +521,7 @@ func makeToplevelFunction(prog *compile.Program, predeclared StringDict) *Functi
 	}
 
 	return &Function{
+		id:      -1,
 		funcode: prog.Toplevel,
 		module: &module{
 			program:     prog,
@@ -1255,6 +1259,9 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 		// one-time initialization of thread
 		if thread.maxSteps == 0 {
 			thread.maxSteps-- // (MaxUint64)
+		}
+		if thread.cache == nil {
+			thread.cache = NewProgramStateDB()
 		}
 	}
 

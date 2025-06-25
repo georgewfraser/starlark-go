@@ -1,13 +1,11 @@
-package incremental
+package starlark
 
 import (
 	"encoding/binary"
 	"slices"
-
 	"unsafe"
 
 	"github.com/cespare/xxhash/v2"
-	"go.starlark.net/starlark"
 )
 
 // CACHE_SIZE is calculated so the empty memo array is 1 MB in size.
@@ -47,19 +45,19 @@ type Read struct {
 // Interned is a reference to an interned value in the program state database.
 // It is used to avoid copying large values and to ensure that the same value
 // is reused across different function calls or statements.
-type Interned *starlark.Value
+type Interned *Value
 
 func NewProgramStateDB() *ProgramStateDB {
 	return &ProgramStateDB{}
 }
 
-func (db *ProgramStateDB) Intern(value starlark.Value) Interned {
+func (db *ProgramStateDB) Intern(value Value) Interned {
 	v := value
 	return &v
 }
 
 func (db *ProgramStateDB) Get(function int, args []Interned) *Record {
-	idx := hash(function, args)
+	idx := memoHash(function, args)
 	rec := &db.memo[idx]
 
 	// If the entry is empty, return nil.
@@ -76,13 +74,13 @@ func (db *ProgramStateDB) Get(function int, args []Interned) *Record {
 }
 
 func (db *ProgramStateDB) Put(function int, args []Interned, reads []Read, value Interned) {
-	idx := hash(function, args)
+	idx := memoHash(function, args)
 	db.memo[idx] = Record{function: function, args: args, reads: reads, result: value}
 }
 
 // index computes the position within the memo table for the given key.
 // hash computes the memo table index for the given key.
-func hash(function int, args []Interned) int {
+func memoHash(function int, args []Interned) int {
 	var buf [8]byte
 	h := xxhash.New()
 	binary.LittleEndian.PutUint64(buf[:], uint64(function))
