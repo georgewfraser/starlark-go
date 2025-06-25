@@ -22,14 +22,17 @@ func TestProgramStateDBPutGet(t *testing.T) {
 	arg := db.Intern(MakeInt(42))
 	res := db.Intern(String("result"))
 	reads := []Read{{variable: 1, value: arg}}
-	db.Put(1, []Interned{arg}, reads, res)
-
+	writes := []Write{{variable: 2, value: res}}
+	db.Put(1, []Interned{arg}, reads, writes, res)
 	rec := db.Get(1, []Interned{arg})
 	if rec.result != res || rec.function != 1 || !slices.Equal(rec.args, []Interned{arg}) {
 		t.Fatalf("record mismatch")
 	}
 	if len(rec.reads) != 1 || rec.reads[0].variable != 1 || rec.reads[0].value != arg {
 		t.Fatalf("reads mismatch")
+	}
+	if len(rec.writes) != 1 || rec.writes[0].variable != 2 || rec.writes[0].value != res {
+		t.Fatalf("writes mismatch")
 	}
 
 	// request with different arg should miss
@@ -43,7 +46,7 @@ func TestProgramStateDBCollision(t *testing.T) {
 	db := NewProgramStateDB()
 	arg := db.Intern(MakeInt(1))
 	r1 := db.Intern(String("one"))
-	db.Put(0, []Interned{arg}, nil, r1)
+	db.Put(0, []Interned{arg}, nil, nil, r1)
 
 	// find a second function id that hashes to the same slot
 	target := memoHash(0, []Interned{arg})
@@ -57,7 +60,7 @@ func TestProgramStateDBCollision(t *testing.T) {
 		t.Fatalf("unable to find collision")
 	}
 	r2 := db.Intern(String("two"))
-	db.Put(fid2, []Interned{arg}, nil, r2)
+	db.Put(fid2, []Interned{arg}, nil, nil, r2)
 
 	// first record should be evicted
 	if rec := db.Get(0, []Interned{arg}); rec != nil {

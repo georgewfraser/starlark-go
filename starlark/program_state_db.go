@@ -26,12 +26,12 @@ type Record struct {
 	function int
 	args     []Interned
 	reads    []Read
+	writes   []Write
 	result   Interned
 }
 
 // Read records the value read from a variable or mutable during the execution
-// of a function body. It captures the variable's identifier and the value that
-// was read at the time of execution.
+// of a function body.
 type Read struct {
 	// variable identifies the global variable, captured local variable, or mutable that was read.
 	// Since we are memoizing the execution of function bodies, it only needs to be unique within the context of the named function.
@@ -39,6 +39,17 @@ type Read struct {
 	// So 0..numGlobals is reserved for globals, numGlobals..numGlobals+numCaptures for captures, and numGlobals+numCaptures.. for mutables.
 	variable int
 	// value that was read on the last execution of the function body
+	value Interned
+}
+
+// Write records the value written to a variable or mutable during the execution
+// of a function body.
+type Write struct {
+	// variable identifies the global variable or mutable that was written.
+	// unlike Read, it does not include captures since they are not writable.
+	// 0..numGlobals is reserved for globals, and numGlobals.. for mutables.
+	variable int
+	// value that was written on the last execution of the function body
 	value Interned
 }
 
@@ -54,6 +65,10 @@ func NewProgramStateDB() *ProgramStateDB {
 func (db *ProgramStateDB) Intern(value Value) Interned {
 	v := value
 	return &v
+}
+
+func (db *ProgramStateDB) Value(value Interned) Value {
+	return *value
 }
 
 func (db *ProgramStateDB) Get(function int, args []Interned) *Record {
@@ -73,9 +88,9 @@ func (db *ProgramStateDB) Get(function int, args []Interned) *Record {
 	return rec
 }
 
-func (db *ProgramStateDB) Put(function int, args []Interned, reads []Read, value Interned) {
+func (db *ProgramStateDB) Put(function int, args []Interned, reads []Read, writes []Write, result Interned) {
 	idx := memoHash(function, args)
-	db.memo[idx] = Record{function: function, args: args, reads: reads, result: value}
+	db.memo[idx] = Record{function, args, reads, writes, result}
 }
 
 // index computes the position within the memo table for the given key.

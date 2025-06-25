@@ -60,6 +60,45 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		return nil, thread.evalError(err)
 	}
 
+	internedArgs := make([]Interned, fn.NumParams())
+	for i := range fn.NumParams() {
+		internedArgs[0] = fn.module.cache.Intern(locals[i])
+	}
+	cachedResult := fn.module.cache.Get(fn.id, internedArgs)
+	// If we find a cached result, verify that the reads match.
+	if cachedResult != nil {
+		for _, read := range cachedResult.reads {
+			if read.variable < len(fn.module.globals) {
+				if read.value != fn.module.cache.Intern(fn.module.globals[read.variable]) {
+					cachedResult = nil
+					break
+				}
+			} else if read.variable < len(fn.module.globals)+len(fn.freevars) {
+				if read.value != fn.module.cache.Intern(fn.freevars[read.variable-len(fn.module.globals)]) {
+					cachedResult = nil
+					break
+				}
+			} else {
+				panic("todo")
+			}
+
+		}
+	}
+	// If we still have a cached result, apply the writes and return early.
+	if cachedResult != nil {
+		for _, write := range cachedResult.writes {
+			if write.variable < len(fn.module.globals) {
+				fn.module.globals[write.variable] = fn.module.cache.Value(write.value)
+			} else {
+				panic("todo")
+			}
+		}
+		return fn.module.cache.Value(cachedResult.result), nil
+	}
+
+	var reads []Read
+	var writes []Write
+
 	fr.locals = locals
 
 	if vmdebug {
@@ -595,6 +634,10 @@ loop:
 			sp--
 
 		case compile.SETGLOBAL:
+			writes = append(writes, Write{
+				variable: int(arg),
+				value:    fn.module.cache.Intern(stack[sp-1]),
+			})
 			fn.module.globals[arg] = stack[sp-1]
 			sp--
 
@@ -608,6 +651,10 @@ loop:
 			sp++
 
 		case compile.FREE:
+			reads = append(reads, Read{
+				variable: int(arg) + len(fn.module.globals),
+				value:    fn.module.cache.Intern(fn.freevars[arg]),
+			})
 			stack[sp] = fn.freevars[arg]
 			sp++
 
@@ -626,6 +673,10 @@ loop:
 				err = fmt.Errorf("local variable %s referenced before assignment", f.FreeVars[arg].Name)
 				break loop
 			}
+			reads = append(reads, Read{
+				variable: int(arg) + len(fn.module.globals),
+				value:    fn.module.cache.Intern(v),
+			})
 			stack[sp] = v
 			sp++
 
@@ -635,6 +686,10 @@ loop:
 				err = fmt.Errorf("global variable %s referenced before assignment", f.Prog.Globals[arg].Name)
 				break loop
 			}
+			reads = append(reads, Read{
+				variable: int(arg),
+				value:    fn.module.cache.Intern(x),
+			})
 			stack[sp] = x
 			sp++
 
@@ -656,6 +711,11 @@ loop:
 			err = fmt.Errorf("unimplemented: %s", op)
 			break loop
 		}
+	}
+
+	// Cache the result.
+	if err == nil && result != nil {
+		fn.module.cache.Put(fn.id, internedArgs, reads, writes, fn.module.cache.Intern(result))
 	}
 	// (deferred cleanup runs here)
 	return result, err
