@@ -2,6 +2,8 @@ package starlark
 
 import (
 	"testing"
+
+	"go.starlark.net/internal/compile"
 )
 
 func TestIntern(t *testing.T) {
@@ -39,14 +41,15 @@ func dynamicString(s string) string {
 
 func TestProgramStateDBPutGet(t *testing.T) {
 	db := NewProgramStateDB()
+	prog := &compile.Program{}
 	arg := db.Intern(MakeInt(dynamicInt(42)))
 	res := db.Intern(String("result"))
 	captures := []Capture{
 		{variable: 1, value: arg},
 		{variable: 2, value: res},
 	}
-	db.Put(1, []Interned{arg}, captures, res)
-	rec := db.Get(1, []Interned{arg})
+	db.Put(prog, 1, []Interned{arg}, captures, res)
+	rec := db.Get(prog, 1, []Interned{arg})
 	if rec == nil {
 		t.Fatalf("expected record to be found")
 	}
@@ -59,7 +62,7 @@ func TestProgramStateDBPutGet(t *testing.T) {
 	}
 
 	// request with different arg should miss
-	miss := db.Get(1, []Interned{db.Intern(MakeInt(dynamicInt(43)))})
+	miss := db.Get(prog, 1, []Interned{db.Intern(MakeInt(dynamicInt(43)))})
 	if miss != nil {
 		t.Fatalf("expected cache miss")
 	}
@@ -67,29 +70,30 @@ func TestProgramStateDBPutGet(t *testing.T) {
 
 func TestProgramStateDBCollision(t *testing.T) {
 	db := NewProgramStateDB()
+	prog := &compile.Program{}
 	arg := db.Intern(MakeInt(dynamicInt(1)))
 	r1 := db.Intern(String("one"))
-	db.Put(0, []Interned{arg}, nil, r1)
+	db.Put(prog, 0, []Interned{arg}, nil, r1)
 
 	// find a second function id that hashes to the same slot
-	target := hashKey(0, []Interned{arg})
+	target := hashKey(prog, 0, []Interned{arg})
 	fid2 := 1
 	for ; fid2 < CACHE_SIZE*10; fid2++ {
-		if hashKey(fid2, []Interned{arg}) == target {
+		if hashKey(prog, fid2, []Interned{arg}) == target {
 			break
 		}
 	}
-	if hashKey(fid2, []Interned{arg}) != target {
+	if hashKey(prog, fid2, []Interned{arg}) != target {
 		t.Fatalf("unable to find collision")
 	}
 	r2 := db.Intern(String("two"))
-	db.Put(fid2, []Interned{arg}, nil, r2)
+	db.Put(prog, fid2, []Interned{arg}, nil, r2)
 
 	// first record should be evicted
-	if rec := db.Get(0, []Interned{arg}); rec != nil {
+	if rec := db.Get(prog, 0, []Interned{arg}); rec != nil {
 		t.Fatalf("expected eviction of first record")
 	}
-	if rec := db.Get(fid2, []Interned{arg}); rec == nil || !rec.result.Eq(r2) {
+	if rec := db.Get(prog, fid2, []Interned{arg}); rec == nil || !rec.result.Eq(r2) {
 		t.Fatalf("expected second record to remain")
 	}
 }
