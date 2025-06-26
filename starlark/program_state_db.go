@@ -109,7 +109,7 @@ func (i Interned) Empty() bool {
 }
 
 func (i Interned) words() [2]uintptr {
-	return *(*[2]uintptr)(unsafe.Pointer(&i))
+	return *(*[2]uintptr)(unsafe.Pointer(&i.value))
 }
 
 // index computes the position within the memo table for the given key.

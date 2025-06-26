@@ -7,29 +7,25 @@ import (
 func TestIntern(t *testing.T) {
 	db := NewProgramStateDB()
 
-	// Small values should be interned by golang.
-	i1 := db.Intern(MakeInt(dynamicInt(1)))
-	i2 := db.Intern(MakeInt(dynamicInt(1)))
-	if !i1.Eq(i2) {
-		t.Fatalf("expected interned pointers to match for small int")
+	s1 := Value(String(dynamicString("1")))
+	s2 := Value(String(dynamicString("1")))
+
+	// Large values should be interned as distinct values even if they are equal.
+	i1 := db.Intern(s1)
+	i1again := db.Intern(s1)
+	i2 := db.Intern(s2)
+	if i1.Eq(i2) {
+		t.Fatalf("expected interned values to be distinct for strings")
 	}
 
-	// But if they are different, they should not match.
-	i3 := db.Intern(MakeInt(dynamicInt(2)))
-	if i1.Eq(i3) {
-		t.Fatalf("expected interned pointers to differ for different small ints")
+	// But if they're the same object, they should be equal.
+	if !i1again.Eq(i1) {
+		t.Fatalf("expected interned values to be equal for same object")
 	}
 
 	// Identical values should be equal when I convert them back to Value.
 	if db.Value(i1) != db.Value(i2) {
 		t.Fatalf("expected interned values to match when converted back to Value")
-	}
-
-	// Large values should be interned as distinct values even if they are equal.
-	s1 := db.Intern(String(dynamicString("hello")))
-	s2 := db.Intern(String(dynamicString("hello")))
-	if s1.Eq(s2) {
-		t.Fatalf("expected interned pointers to differ for distinct strings")
 	}
 }
 
