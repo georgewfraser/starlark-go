@@ -2,10 +2,9 @@
 
 load("assert.star", "assert")
 
-mutable = [0]
+s = sneaky()
 def counter():
-    mutable[0] += 1
-    return mutable[0]
+    return s()
 
 assert.eq(counter(), 1)
 assert.eq(counter(), 1) # This will be wrong once I tackle mutables.
@@ -35,13 +34,12 @@ assert.eq(counter(), 2) # change to global busts the cache
 # option:globalreassign
 load("assert.star", "assert")
 
-mutable = [0]
+s = sneaky()
 buster = 0
 def counter(inspect_buster):
     if inspect_buster:
         print(buster)
-    mutable[0] += 1
-    return mutable[0]
+    return s()
 
 assert.eq(counter(False), 1)
 buster = 1
