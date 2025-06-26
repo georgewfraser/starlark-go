@@ -44,11 +44,11 @@ func TestProgramStateDBPutGet(t *testing.T) {
 	prog := &compile.Program{}
 	arg := db.Intern(MakeInt(dynamicInt(42)))
 	res := db.Intern(String("result"))
-	captures := []Capture{
+	free := []Capture{
 		{variable: 1, value: arg},
 		{variable: 2, value: res},
 	}
-	db.Put(prog, 1, []Interned{arg}, captures, nil, res)
+	db.Put(prog, 1, []Interned{arg}, Observed{free: free}, res)
 	rec := db.Get(prog, 1, []Interned{arg})
 	if rec == nil {
 		t.Fatalf("expected record to be found")
@@ -56,8 +56,8 @@ func TestProgramStateDBPutGet(t *testing.T) {
 	if !rec.result.Eq(res) || rec.function != 1 || len(rec.args) != 1 || !rec.args[0].Eq(arg) {
 		t.Fatalf("record mismatch")
 	}
-	if len(rec.captures) != 2 || rec.captures[0].variable != 1 || !rec.captures[0].value.Eq(arg) ||
-		rec.captures[1].variable != 2 || !rec.captures[1].value.Eq(res) {
+	if len(rec.free) != 2 || rec.free[0].variable != 1 || !rec.free[0].value.Eq(arg) ||
+		rec.free[1].variable != 2 || !rec.free[1].value.Eq(res) {
 		t.Fatalf("captures mismatch")
 	}
 
@@ -73,7 +73,7 @@ func TestProgramStateDBCollision(t *testing.T) {
 	prog := &compile.Program{}
 	arg := db.Intern(MakeInt(dynamicInt(1)))
 	r1 := db.Intern(String("one"))
-	db.Put(prog, 0, []Interned{arg}, nil, nil, r1)
+	db.Put(prog, 0, []Interned{arg}, Observed{}, r1)
 
 	// find a second function id that hashes to the same slot
 	target := hashKey(prog, 0, []Interned{arg})
@@ -87,7 +87,7 @@ func TestProgramStateDBCollision(t *testing.T) {
 		t.Fatalf("unable to find collision")
 	}
 	r2 := db.Intern(String("two"))
-	db.Put(prog, fid2, []Interned{arg}, nil, nil, r2)
+	db.Put(prog, fid2, []Interned{arg}, Observed{}, r2)
 
 	// first record should be evicted
 	if rec := db.Get(prog, 0, []Interned{arg}); rec != nil {

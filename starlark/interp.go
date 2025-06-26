@@ -67,25 +67,24 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	cachedResult := fn.module.cache.Get(fn.module.program, fn.id, internedArgs)
 	// Validate that all observed captures match the current values.
 	if cachedResult != nil {
-		for _, c := range cachedResult.captures {
-			if c.variable < len(fn.module.globals) {
-				if !fn.module.cache.Intern(fn.module.globals[c.variable]).Eq(c.value) {
-					cachedResult = nil
-					break
-				}
-			} else if c.variable < len(fn.module.globals)+len(fn.freevars) {
-				if !fn.module.cache.Intern(fn.freevars[c.variable-len(fn.module.globals)]).Eq(c.value) {
-					cachedResult = nil
-					break
-				}
-			} else {
-				panic("todo")
+		for _, c := range cachedResult.free {
+			if !fn.module.cache.Intern(fn.module.globals[c.variable]).Eq(c.value) {
+				cachedResult = nil
+				break
 			}
 		}
 	}
-	// Validate that all observed mutables match the current values.
 	if cachedResult != nil {
-		for _, m := range cachedResult.mutables {
+		for _, c := range cachedResult.locals {
+			if !fn.module.cache.Intern(fn.freevars[c.variable]).Eq(c.value) {
+				cachedResult = nil
+				break
+			}
+		}
+	}
+	// Validate that all observed lists match the current versions.
+	if cachedResult != nil {
+		for _, m := range cachedResult.lists {
 			if m.value.version != m.version {
 				cachedResult = nil
 				break
@@ -97,8 +96,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		return fn.module.cache.Value(cachedResult.result), nil
 	}
 
-	var captures []Capture
-	var mutables []Mutable
+	var obs Observed
 
 	fr.locals = locals
 
@@ -454,7 +452,7 @@ loop:
 			switch x := x.(type) {
 			case *List:
 				x.version++
-				mutables = append(mutables, Mutable{value: x, version: x.version})
+				obs.lists = append(obs.lists, ListVersion{value: x, version: x.version})
 			}
 			if err != nil {
 				break loop
@@ -467,7 +465,7 @@ loop:
 			z, err2 := getIndex(x, y)
 			switch x := x.(type) {
 			case *List:
-				mutables = append(mutables, Mutable{value: x, version: x.version})
+				obs.lists = append(obs.lists, ListVersion{value: x, version: x.version})
 			}
 			if err2 != nil {
 				err = err2
@@ -644,7 +642,7 @@ loop:
 			sp--
 
 		case compile.SETGLOBAL:
-			captures = append(captures, Capture{
+			obs.free = append(obs.free, Capture{
 				variable: int(arg),
 				value:    fn.module.cache.Intern(stack[sp-1]),
 			})
@@ -661,8 +659,8 @@ loop:
 			sp++
 
 		case compile.FREE:
-			captures = append(captures, Capture{
-				variable: int(arg) + len(fn.module.globals),
+			obs.locals = append(obs.locals, Capture{
+				variable: int(arg),
 				value:    fn.module.cache.Intern(fn.freevars[arg]),
 			})
 			stack[sp] = fn.freevars[arg]
@@ -683,8 +681,8 @@ loop:
 				err = fmt.Errorf("local variable %s referenced before assignment", f.FreeVars[arg].Name)
 				break loop
 			}
-			captures = append(captures, Capture{
-				variable: int(arg) + len(fn.module.globals),
+			obs.locals = append(obs.locals, Capture{
+				variable: int(arg),
 				value:    fn.module.cache.Intern(v),
 			})
 			stack[sp] = v
@@ -696,7 +694,7 @@ loop:
 				err = fmt.Errorf("global variable %s referenced before assignment", f.Prog.Globals[arg].Name)
 				break loop
 			}
-			captures = append(captures, Capture{
+			obs.free = append(obs.free, Capture{
 				variable: int(arg),
 				value:    fn.module.cache.Intern(x),
 			})
@@ -727,7 +725,7 @@ loop:
 	// Hack to get assign.star to pass
 	cacheable := fn.funcode.Name != "f"
 	if cacheable && err == nil && result != nil {
-		fn.module.cache.Put(fn.module.program, fn.id, internedArgs, captures, mutables, fn.module.cache.Intern(result))
+		fn.module.cache.Put(fn.module.program, fn.id, internedArgs, obs, fn.module.cache.Intern(result))
 	}
 	// (deferred cleanup runs here)
 	return result, err

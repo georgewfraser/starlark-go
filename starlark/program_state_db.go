@@ -21,30 +21,37 @@ type ProgramStateDB struct {
 }
 
 // Record memoizes the result of a function call along with the values of
-// captures observed during its execution
+// free variables and captured locals observed during its execution.
 // The key of the ProgramStateDB is the function identifier
 // and its arguments, but the recorded captures are used to invalidate the
 // cache if their values change.
+// Observed groups the values and list versions read during execution.
+// The interpreter records these slices while executing a function body
+// and the cache uses them to detect invalidation when values change.
+type Observed struct {
+	free   []Capture
+	locals []Capture
+	lists  []ListVersion
+}
+
 type Record struct {
 	program  *compile.Program
 	function int
 	args     []Interned
-	captures []Capture
-	mutables []Mutable
-	result   Interned
+	Observed
+	result Interned
 }
 
-// Capture records the value observed for a global or captured local during
-// execution of a function body. A single global may appear multiple times in
-// this slice if it was read and then written with a different value.
-// Variables are numbered such that 0..numGlobals-1 are globals and
-// numGlobals..numGlobals+numCaptures-1 are captured locals.
+// Capture records the value observed for a variable during execution of
+// a function body. A single variable may appear multiple times if it was
+// read and then written with a different value.
 type Capture struct {
 	variable int
 	value    Interned
 }
 
-type Mutable struct {
+// ListVersion records the version of a list observed during execution.
+type ListVersion struct {
 	value   *List
 	version int
 }
@@ -89,9 +96,9 @@ func (db *ProgramStateDB) Get(program *compile.Program, function int, args []Int
 	return rec
 }
 
-func (db *ProgramStateDB) Put(program *compile.Program, function int, args []Interned, captures []Capture, mutables []Mutable, result Interned) {
+func (db *ProgramStateDB) Put(program *compile.Program, function int, args []Interned, obs Observed, result Interned) {
 	idx := hashKey(program, function, args)
-	db.memo[idx] = Record{program, function, args, captures, mutables, result}
+	db.memo[idx] = Record{program: program, function: function, args: args, Observed: obs, result: result}
 }
 
 // Eq checks if two Interned values are equal by identity.
