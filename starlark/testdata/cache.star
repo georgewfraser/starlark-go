@@ -49,3 +49,14 @@ assert.eq(counter(True), 2) # cache is busted by argument change
 assert.eq(counter(True), 2) # cache holds
 buster = 2
 assert.eq(counter(True), 3) # cache is busted by buster change, which is now in the read set
+
+---
+load("assert.star", "assert")
+
+list = [0]
+def counter():
+    list[0] += 1
+    return list[0]
+
+assert.eq(counter(), 1)
+assert.eq(counter(), 2) # Modification of list busts the cache
