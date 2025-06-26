@@ -30,13 +30,13 @@ type Record struct {
 	function int
 	args     []Interned
 	captures []Capture
+	mutables []Mutable
 	result   Interned
 }
 
 // Capture records the value observed for a global or captured local during
 // execution of a function body. A single global may appear multiple times in
 // this slice if it was read and then written with a different value.
-//
 // Variables are numbered such that 0..numGlobals-1 are globals and
 // numGlobals..numGlobals+numCaptures-1 are captured locals.
 type Capture struct {
@@ -44,9 +44,12 @@ type Capture struct {
 	value    Interned
 }
 
+type Mutable struct {
+	value   *List
+	version int
+}
+
 // Interned is a reference to an interned value in the program state database.
-// It is used to avoid copying large values and to ensure that the same value
-// is reused across different function calls or statements.
 type Interned struct {
 	value Value
 	_     [0]func() // uncomparable marker
@@ -86,9 +89,9 @@ func (db *ProgramStateDB) Get(program *compile.Program, function int, args []Int
 	return rec
 }
 
-func (db *ProgramStateDB) Put(program *compile.Program, function int, args []Interned, captures []Capture, result Interned) {
+func (db *ProgramStateDB) Put(program *compile.Program, function int, args []Interned, captures []Capture, mutables []Mutable, result Interned) {
 	idx := hashKey(program, function, args)
-	db.memo[idx] = Record{program, function, args, captures, result}
+	db.memo[idx] = Record{program, function, args, captures, mutables, result}
 }
 
 // Eq checks if two Interned values are equal by identity.

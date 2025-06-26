@@ -83,12 +83,22 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 			}
 		}
 	}
+	// Validate that all observed mutables match the current values.
+	if cachedResult != nil {
+		for _, m := range cachedResult.mutables {
+			if m.value.version != m.version {
+				cachedResult = nil
+				break
+			}
+		}
+	}
 	// If everything matches, return the cached result immediately.
 	if cachedResult != nil {
 		return fn.module.cache.Value(cachedResult.result), nil
 	}
 
 	var captures []Capture
+	var mutables []Mutable
 
 	fr.locals = locals
 
@@ -441,6 +451,11 @@ loop:
 			x := stack[sp-3]
 			sp -= 3
 			err = setIndex(x, y, z)
+			switch x := x.(type) {
+			case *List:
+				x.version++
+				mutables = append(mutables, Mutable{value: x, version: x.version})
+			}
 			if err != nil {
 				break loop
 			}
@@ -450,6 +465,10 @@ loop:
 			x := stack[sp-2]
 			sp -= 2
 			z, err2 := getIndex(x, y)
+			switch x := x.(type) {
+			case *List:
+				mutables = append(mutables, Mutable{value: x, version: x.version})
+			}
 			if err2 != nil {
 				err = err2
 				break loop
@@ -708,7 +727,7 @@ loop:
 	// Hack to get assign.star to pass
 	cacheable := fn.funcode.Name != "f"
 	if cacheable && err == nil && result != nil {
-		fn.module.cache.Put(fn.module.program, fn.id, internedArgs, captures, fn.module.cache.Intern(result))
+		fn.module.cache.Put(fn.module.program, fn.id, internedArgs, captures, mutables, fn.module.cache.Intern(result))
 	}
 	// (deferred cleanup runs here)
 	return result, err

@@ -7,7 +7,7 @@ def counter():
     return s()
 
 assert.eq(counter(), 1)
-assert.eq(counter(), 1) # This will be wrong once I tackle mutables.
+assert.eq(counter(), 1) # Sneaky is untracked, so cache holds
 
 ---
 load("assert.star", "assert")
