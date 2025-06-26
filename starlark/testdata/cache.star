@@ -2,10 +2,10 @@
 
 load("assert.star", "assert")
 
-def a():
-    return 1
+mutable = [0]
+def counter():
+    mutable[0] += 1
+    return mutable[0]
 
-x = a()
-y = a()
-
-assert.eq(x, y)
+assert.eq(counter(), 1)
+assert.eq(counter(), 1) # This will be wrong once I tackle mutables.

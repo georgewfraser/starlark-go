@@ -2,7 +2,6 @@ package starlark
 
 import (
 	"encoding/binary"
-	"slices"
 	"unsafe"
 
 	"github.com/cespare/xxhash/v2"
@@ -56,52 +55,75 @@ type Write struct {
 // Interned is a reference to an interned value in the program state database.
 // It is used to avoid copying large values and to ensure that the same value
 // is reused across different function calls or statements.
-type Interned *Value
+type Interned struct {
+	value Value
+	_     [0]func() // uncomparable marker
+}
 
 func NewProgramStateDB() *ProgramStateDB {
 	return &ProgramStateDB{}
 }
 
 func (db *ProgramStateDB) Intern(value Value) Interned {
-	v := value
-	return &v
+	return Interned{value: value}
 }
 
 func (db *ProgramStateDB) Value(value Interned) Value {
-	return *value
+	return value.value
 }
 
 func (db *ProgramStateDB) Get(function int, args []Interned) *Record {
-	idx := memoHash(function, args)
+	idx := hashKey(function, args)
 	rec := &db.memo[idx]
 
 	// If the entry is empty, return nil.
-	if rec.result == nil {
+	if rec.result.Empty() {
 		return nil
 	}
 
 	// If the entry is a collision, return nil.
-	if rec.function != function || !slices.Equal(rec.args, args) {
+	if rec.function != function {
 		return nil
+	}
+	for i := range rec.args {
+		if !rec.args[i].Eq(args[i]) {
+			return nil
+		}
 	}
 
 	return rec
 }
 
 func (db *ProgramStateDB) Put(function int, args []Interned, reads []Read, writes []Write, result Interned) {
-	idx := memoHash(function, args)
+	idx := hashKey(function, args)
 	db.memo[idx] = Record{function, args, reads, writes, result}
+}
+
+// Eq checks if two Interned values are equal by identity.
+func (i Interned) Eq(j Interned) bool {
+	return i.words() == j.words()
+}
+
+func (i Interned) Empty() bool {
+	return i.value == nil
+}
+
+func (i Interned) words() [2]uintptr {
+	return *(*[2]uintptr)(unsafe.Pointer(&i))
 }
 
 // index computes the position within the memo table for the given key.
 // hash computes the memo table index for the given key.
-func memoHash(function int, args []Interned) int {
+func hashKey(function int, args []Interned) int {
 	var buf [8]byte
 	h := xxhash.New()
 	binary.LittleEndian.PutUint64(buf[:], uint64(function))
 	_, _ = h.Write(buf[:])
 	for _, a := range args {
-		binary.LittleEndian.PutUint64(buf[:], uint64(uintptr(unsafe.Pointer(a))))
+		words := a.words()
+		binary.LittleEndian.PutUint64(buf[:], uint64(words[0]))
+		_, _ = h.Write(buf[:])
+		binary.LittleEndian.PutUint64(buf[:], uint64(words[1]))
 		_, _ = h.Write(buf[:])
 	}
 	return int(h.Sum64() % uint64(CACHE_SIZE))
