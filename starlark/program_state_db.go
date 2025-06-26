@@ -17,39 +17,27 @@ type ProgramStateDB struct {
 	memo [CACHE_SIZE]Record
 }
 
-// Record memoizes the result of a function call along with the values read
-// from variables during the execution of the function body.
-// The key of the ProgramStateDB is the function identifier and the arguments
-// but the reads are used to invalidate the cache if implicit arguments change.
+// Record memoizes the result of a function call along with the values of
+// captures observed during its execution. Captures include globals and
+// lexical captures. The key of the ProgramStateDB is the function identifier
+// and its arguments, but the recorded captures are used to invalidate the
+// cache if implicit arguments change.
 type Record struct {
 	function int
 	args     []Interned
-	reads    []Read
-	writes   []Write
+	captures []Capture
 	result   Interned
 }
 
-// Read records the value read from a variable during the execution
-// of a function body.
-type Read struct {
-	// variable identifies the global variable or captured local variable that was read.
-	// Since we are memoizing the execution of function bodies, it only needs to be unique within the context of the named function.
-	// The set of globals and captures is fixed for a given function and resolve ahead of time.
-	// So 0..numGlobals is reserved for globals, and numGlobals..numGlobals+numCaptures for captures.
+// Capture records the value observed for a global or captured local during
+// execution of a function body. A single global may appear multiple times in
+// this slice if it was read and then written with a different value.
+//
+// Variables are numbered such that 0..numGlobals-1 are globals and
+// numGlobals..numGlobals+numCaptures-1 are captured locals.
+type Capture struct {
 	variable int
-	// value that was read on the last execution of the function body
-	value Interned
-}
-
-// Write records the value written to a variable during the execution
-// of a function body.
-type Write struct {
-	// variable identifies the global variable that was written.
-	// Unlike Read, it does not include captures since they are not writable.
-	// 0..numGlobals is reserved for globals.
-	variable int
-	// value that was written on the last execution of the function body
-	value Interned
+	value    Interned
 }
 
 // Interned is a reference to an interned value in the program state database.
@@ -94,9 +82,9 @@ func (db *ProgramStateDB) Get(function int, args []Interned) *Record {
 	return rec
 }
 
-func (db *ProgramStateDB) Put(function int, args []Interned, reads []Read, writes []Write, result Interned) {
+func (db *ProgramStateDB) Put(function int, args []Interned, captures []Capture, result Interned) {
 	idx := hashKey(function, args)
-	db.memo[idx] = Record{function, args, reads, writes, result}
+	db.memo[idx] = Record{function, args, captures, result}
 }
 
 // Eq checks if two Interned values are equal by identity.
