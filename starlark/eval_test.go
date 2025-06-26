@@ -164,6 +164,7 @@ func TestExecFile(t *testing.T) {
 				"hasfields": starlark.NewBuiltin("hasfields", newHasFields),
 				"fibonacci": fib{},
 				"struct":    starlark.NewBuiltin("struct", starlarkstruct.Make),
+				"sneaky":    starlark.NewBuiltin("sneaky", newSneaky),
 			}
 
 			opts := getOptions(chunk.Source)
@@ -300,6 +301,32 @@ func (hf *hasfields) Binary(op syntax.Token, y starlark.Value, side starlark.Sid
 		}
 	}
 	return nil, nil
+}
+
+func newSneaky(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(args)+len(kwargs) > 0 {
+		return nil, fmt.Errorf("%s: unexpected arguments", b.Name())
+	}
+	return &sneaky{}, nil
+}
+
+// sneaky is a test-only callable whose result increments on each call.
+type sneaky struct{ count int }
+
+var _ starlark.Callable = (*sneaky)(nil)
+
+func (s *sneaky) String() string        { return fmt.Sprintf("sneaky(%d)", s.count) }
+func (s *sneaky) Type() string          { return "sneaky" }
+func (s *sneaky) Freeze()               {}
+func (s *sneaky) Truth() starlark.Bool  { return true }
+func (s *sneaky) Hash() (uint32, error) { return 0, fmt.Errorf("sneaky is unhashable") }
+func (s *sneaky) Name() string          { return "sneaky" }
+func (s *sneaky) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	if len(args)+len(kwargs) > 0 {
+		return nil, fmt.Errorf("sneaky: unexpected arguments")
+	}
+	s.count++
+	return starlark.MakeInt(s.count), nil
 }
 
 func TestParameterPassing(t *testing.T) {
