@@ -65,39 +65,30 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		internedArgs[0] = fn.module.cache.Intern(locals[i])
 	}
 	cachedResult := fn.module.cache.Get(fn.id, internedArgs)
-	// If we find a cached result, verify that the reads match.
+	// Validate that all observed captures match the current values.
 	if cachedResult != nil {
-		for _, read := range cachedResult.reads {
-			if read.variable < len(fn.module.globals) {
-				if !fn.module.cache.Intern(fn.module.globals[read.variable]).Eq(read.value) {
+		for _, c := range cachedResult.captures {
+			if c.variable < len(fn.module.globals) {
+				if !fn.module.cache.Intern(fn.module.globals[c.variable]).Eq(c.value) {
 					cachedResult = nil
 					break
 				}
-			} else if read.variable < len(fn.module.globals)+len(fn.freevars) {
-				if !fn.module.cache.Intern(fn.freevars[read.variable-len(fn.module.globals)]).Eq(read.value) {
+			} else if c.variable < len(fn.module.globals)+len(fn.freevars) {
+				if !fn.module.cache.Intern(fn.freevars[c.variable-len(fn.module.globals)]).Eq(c.value) {
 					cachedResult = nil
 					break
 				}
 			} else {
 				panic("todo")
 			}
-
 		}
 	}
-	// If we still have a cached result, apply the writes and return early.
+	// If everything matches, return the cached result immediately.
 	if cachedResult != nil {
-		for _, write := range cachedResult.writes {
-			if write.variable < len(fn.module.globals) {
-				fn.module.globals[write.variable] = fn.module.cache.Value(write.value)
-			} else {
-				panic("todo")
-			}
-		}
 		return fn.module.cache.Value(cachedResult.result), nil
 	}
 
-	var reads []Read
-	var writes []Write
+	var captures []Capture
 
 	fr.locals = locals
 
@@ -634,7 +625,7 @@ loop:
 			sp--
 
 		case compile.SETGLOBAL:
-			writes = append(writes, Write{
+			captures = append(captures, Capture{
 				variable: int(arg),
 				value:    fn.module.cache.Intern(stack[sp-1]),
 			})
@@ -651,7 +642,7 @@ loop:
 			sp++
 
 		case compile.FREE:
-			reads = append(reads, Read{
+			captures = append(captures, Capture{
 				variable: int(arg) + len(fn.module.globals),
 				value:    fn.module.cache.Intern(fn.freevars[arg]),
 			})
@@ -673,7 +664,7 @@ loop:
 				err = fmt.Errorf("local variable %s referenced before assignment", f.FreeVars[arg].Name)
 				break loop
 			}
-			reads = append(reads, Read{
+			captures = append(captures, Capture{
 				variable: int(arg) + len(fn.module.globals),
 				value:    fn.module.cache.Intern(v),
 			})
@@ -686,7 +677,7 @@ loop:
 				err = fmt.Errorf("global variable %s referenced before assignment", f.Prog.Globals[arg].Name)
 				break loop
 			}
-			reads = append(reads, Read{
+			captures = append(captures, Capture{
 				variable: int(arg),
 				value:    fn.module.cache.Intern(x),
 			})
@@ -718,7 +709,7 @@ loop:
 	// The correct solution is to make the program id part of the cache key.
 	cacheable := fn.funcode.Name == "counter"
 	if cacheable && err == nil && result != nil {
-		fn.module.cache.Put(fn.id, internedArgs, reads, writes, fn.module.cache.Intern(result))
+		fn.module.cache.Put(fn.id, internedArgs, captures, fn.module.cache.Intern(result))
 	}
 	// (deferred cleanup runs here)
 	return result, err
