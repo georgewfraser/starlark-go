@@ -18,7 +18,7 @@ type ProgramStateDB struct {
 }
 
 // Record memoizes the result of a function call along with the values read
-// from variables or mutables during the execution of the function body.
+// from variables during the execution of the function body.
 // The key of the ProgramStateDB is the function identifier and the arguments
 // but the reads are used to invalidate the cache if implicit arguments change.
 type Record struct {
@@ -29,24 +29,24 @@ type Record struct {
 	result   Interned
 }
 
-// Read records the value read from a variable or mutable during the execution
+// Read records the value read from a variable during the execution
 // of a function body.
 type Read struct {
-	// variable identifies the global variable, captured local variable, or mutable that was read.
+	// variable identifies the global variable or captured local variable that was read.
 	// Since we are memoizing the execution of function bodies, it only needs to be unique within the context of the named function.
 	// The set of globals and captures is fixed for a given function and resolve ahead of time.
-	// So 0..numGlobals is reserved for globals, numGlobals..numGlobals+numCaptures for captures, and numGlobals+numCaptures.. for mutables.
+	// So 0..numGlobals is reserved for globals, and numGlobals..numGlobals+numCaptures for captures.
 	variable int
 	// value that was read on the last execution of the function body
 	value Interned
 }
 
-// Write records the value written to a variable or mutable during the execution
+// Write records the value written to a variable during the execution
 // of a function body.
 type Write struct {
-	// variable identifies the global variable or mutable that was written.
-	// unlike Read, it does not include captures since they are not writable.
-	// 0..numGlobals is reserved for globals, and numGlobals.. for mutables.
+	// variable identifies the global variable that was written.
+	// Unlike Read, it does not include captures since they are not writable.
+	// 0..numGlobals is reserved for globals.
 	variable int
 	// value that was written on the last execution of the function body
 	value Interned
