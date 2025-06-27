@@ -53,9 +53,9 @@ func TestProgramStateDBPutGet(t *testing.T) {
 	fn := &Function{}
 	arg := db.Intern(MakeInt(dynamicInt(42)))
 	result := db.Intern(String("result"))
-	obs := Observed{globals: []VariableValue{{variable: 1, value: arg}}}
+	deps := Dependencies{globals: []VariableValue{{variable: 1, value: arg}}}
 
-	db.Put(fn, []Interned{arg}, obs, 7, result)
+	db.Put(fn, []Interned{arg}, deps, result, 7)
 	rec := db.Get(fn, []Interned{arg})
 	if rec == nil {
 		t.Fatalf("expected cached record")
@@ -63,7 +63,7 @@ func TestProgramStateDBPutGet(t *testing.T) {
 	if rec.function != fn || !rec.result.Eq(result) || len(rec.args) != 1 || !rec.args[0].Eq(arg) {
 		t.Fatalf("record contents mismatch")
 	}
-	if rec.Observed.globals[0].variable != 1 || !rec.Observed.globals[0].value.Eq(arg) {
+	if rec.deps.globals[0].variable != 1 || !rec.deps.globals[0].value.Eq(arg) {
 		t.Fatalf("observed globals mismatch")
 	}
 }
@@ -73,7 +73,7 @@ func TestProgramStateDBGetWrongArgument(t *testing.T) {
 	fn := &Function{}
 	arg := db.Intern(MakeInt(dynamicInt(1)))
 	result := db.Intern(String("ok"))
-	db.Put(fn, []Interned{arg}, Observed{}, 0, result)
+	db.Put(fn, []Interned{arg}, Dependencies{}, result, 0)
 
 	miss := db.Get(fn, []Interned{db.Intern(MakeInt(dynamicInt(2)))})
 	if miss != nil {
@@ -87,7 +87,7 @@ func TestProgramStateDBGetWrongFunction(t *testing.T) {
 	fn2 := &Function{}
 	arg := db.Intern(MakeInt(dynamicInt(3)))
 	result := db.Intern(String("x"))
-	db.Put(fn1, []Interned{arg}, Observed{}, 0, result)
+	db.Put(fn1, []Interned{arg}, Dependencies{}, result, 0)
 
 	miss := db.Get(fn2, []Interned{arg})
 	if miss != nil {

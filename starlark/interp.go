@@ -72,7 +72,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	cachedResult := cache.Get(fn, internedArgs)
 	// Validate that all observed captures match the current values.
 	if cachedResult != nil && cachedResult.verified != cache.version {
-		for _, c := range cachedResult.globals {
+		for _, c := range cachedResult.deps.globals {
 			if !cache.Intern(fn.module.globals[c.variable]).Eq(c.value) {
 				cachedResult = nil
 				break
@@ -80,7 +80,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		}
 	}
 	if cachedResult != nil && cachedResult.verified != cache.version {
-		for _, c := range cachedResult.cells {
+		for _, c := range cachedResult.deps.cells {
 			if !cache.Intern(c.cell.v).Eq(c.value) {
 				cachedResult = nil
 				break
@@ -89,7 +89,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	}
 	// Validate that all observed lists have not been modified.
 	if cachedResult != nil && cachedResult.verified != cache.version {
-		for _, m := range cachedResult.lists {
+		for _, m := range cachedResult.deps.lists {
 			if m.modified < m.value.modified {
 				cachedResult = nil
 				break
@@ -106,7 +106,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	// TODO I need to also record every memoized call that I relied on as a dependency.
 	// If a memoized call is invalidated, I am invalidated too.
 	popObs := thread.observed
-	thread.observed = Observed{}
+	thread.observed = Dependencies{}
 
 	fr.locals = locals
 
@@ -746,7 +746,7 @@ loop:
 	// Cache the result.
 	// TODO if the result is stored inline in Intern and fast to compute, don't cache it.
 	if err == nil && result != nil {
-		cache.Put(fn, internedArgs, thread.observed, snapshot, cache.Intern(result))
+		cache.Put(fn, internedArgs, thread.observed, cache.Intern(result), snapshot)
 	}
 	// Restore the previous observed set.
 	thread.observed = popObs

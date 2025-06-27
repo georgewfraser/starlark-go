@@ -22,24 +22,24 @@ type ProgramStateDB struct {
 	version uint64
 }
 
-// Record memoizes the result of a function call along with the values of
-// free variables and captured locals observed during its execution.
-// The key of the ProgramStateDB is the function identifier
-// and its arguments, but the recorded captures are used to invalidate the
-// cache if their values change.
-// Observed groups the values and list versions read during execution.
+// Dependencies groups the values and list versions read during execution.
 // The interpreter records these slices while executing a function body
 // and the cache uses them to detect invalidation when values change.
-type Observed struct {
+type Dependencies struct {
 	globals []VariableValue
 	cells   []CellValue
 	lists   []ListVersion
 }
 
+// Record memoizes the result of a function call along with the values of
+// free variables and captured locals observed during its execution.
+// The key of the ProgramStateDB is the function identifier
+// and its arguments, but the recorded captures are used to invalidate the
+// cache if their values change.
 type Record struct {
 	function *Function
 	args     []Interned
-	Observed
+	deps     Dependencies
 	result   Interned
 	verified uint64 // ProgramStateDB.version when this record was last verified against observed.
 }
@@ -100,13 +100,13 @@ func (db *ProgramStateDB) Get(function *Function, args []Interned) *Record {
 	return nil
 }
 
-func (db *ProgramStateDB) Put(function *Function, args []Interned, obs Observed, verified uint64, result Interned) {
+func (db *ProgramStateDB) Put(function *Function, args []Interned, deps Dependencies, result Interned, verified uint64) {
 	idx := hashKey(function, args)
 	for i := 0; i < CACHE_SIZE; i++ {
 		pos := (idx + i) % CACHE_SIZE
 		rec := &db.memo[pos]
 		if rec.result.Empty() || (rec.function == function && argsEqual(rec.args, args)) {
-			db.memo[pos] = Record{function: function, args: args, Observed: obs, result: result, verified: verified}
+			db.memo[pos] = Record{function, args, deps, result, verified}
 			return
 		}
 	}
