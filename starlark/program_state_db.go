@@ -12,11 +12,9 @@ const CACHE_SIZE = (1 << 20) / (4 * 8) // 1 MB / (size of Record)
 
 type ProgramStateDB struct {
 	// memo stores the cached results of previous function calls.
-	// It is a quasi-perfect hash table where the key is a hash of the
-	// program pointer, function identifier, and its arguments. In the event
-	// of a hash collision we evict the existing entry and replace it with
-	// the new one.
-	// TODO change this to a regular open addressing hash table with eviction based on the clock algorithm.
+	// It is an open-addressing hash table with linear probing. The
+	// table currently has a fixed size and does not resize or evict
+	// entries.
 	memo [CACHE_SIZE]Record
 	// version is bumped every time a mutable or captured variable is updated.
 	// This allows us to invalidate the cache when the program state changes,
@@ -89,29 +87,30 @@ func (db *ProgramStateDB) Value(value Interned) Value {
 
 func (db *ProgramStateDB) Get(function *Function, args []Interned) *Record {
 	idx := hashKey(function, args)
-	rec := &db.memo[idx]
-
-	// If the entry is empty, return nil.
-	if rec.result.Empty() {
-		return nil
-	}
-
-	// If the entry is a collision, return nil.
-	if rec.function != function {
-		return nil
-	}
-	for i := range rec.args {
-		if !rec.args[i].Eq(args[i]) {
+	for i := 0; i < CACHE_SIZE; i++ {
+		rec := &db.memo[(idx+i)%CACHE_SIZE]
+		// empty slot => miss
+		if rec.result.Empty() {
 			return nil
 		}
+		if rec.function == function && argsEqual(rec.args, args) {
+			return rec
+		}
 	}
-
-	return rec
+	return nil
 }
 
 func (db *ProgramStateDB) Put(function *Function, args []Interned, obs Observed, verified uint64, result Interned) {
 	idx := hashKey(function, args)
-	db.memo[idx] = Record{function: function, args: args, Observed: obs, result: result, verified: verified}
+	for i := 0; i < CACHE_SIZE; i++ {
+		pos := (idx + i) % CACHE_SIZE
+		rec := &db.memo[pos]
+		if rec.result.Empty() || (rec.function == function && argsEqual(rec.args, args)) {
+			db.memo[pos] = Record{function: function, args: args, Observed: obs, result: result, verified: verified}
+			return
+		}
+	}
+	panic("ProgramStateDB memo table full")
 }
 
 // Eq checks if two Interned values are equal by identity.
@@ -125,6 +124,18 @@ func (i Interned) Empty() bool {
 
 func (i Interned) words() [2]uintptr {
 	return *(*[2]uintptr)(unsafe.Pointer(&i.value))
+}
+
+func argsEqual(a, b []Interned) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !a[i].Eq(b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // index computes the position within the memo table for the given key.
