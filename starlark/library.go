@@ -1322,7 +1322,7 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
-func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var object Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &object); err != nil {
 		return nil, err
@@ -1332,22 +1332,25 @@ func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return nil, nameErr(b, err)
 	}
 	recv.elems = append(recv.elems, object)
+	observeWriteList(thread, recv)
 	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·clear
-func list_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	if err := b.Receiver().(*List).Clear(); err != nil {
+	recv := b.Receiver().(*List)
+	if err := recv.Clear(); err != nil {
 		return nil, nameErr(b, err)
 	}
+	observeWriteList(thread, recv)
 	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·extend
-func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_extend(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var iterable Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
@@ -1357,11 +1360,12 @@ func list_extend(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return nil, nameErr(b, err)
 	}
 	listExtend(recv, iterable)
+	observeWriteList(thread, recv)
 	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·index
-func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var value, start_, end_ Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &value, &start_, &end_); err != nil {
 		return nil, err
@@ -1377,6 +1381,7 @@ func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
+			observeReadList(thread, recv)
 			return MakeInt(i), nil
 		}
 	}
@@ -1384,7 +1389,7 @@ func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·insert
-func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var index int
 	var object Value
@@ -1410,11 +1415,12 @@ func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
 	}
+	observeWriteList(thread, recv)
 	return None, nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·remove
-func list_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_remove(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver().(*List)
 	var value Value
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &value); err != nil {
@@ -1428,6 +1434,7 @@ func list_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			return nil, fmt.Errorf("remove: %v", err)
 		} else if eq {
 			recv.elems = append(recv.elems[:i], recv.elems[i+1:]...)
+			observeWriteList(thread, recv)
 			return None, nil
 		}
 	}
@@ -1435,7 +1442,7 @@ func list_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·pop
-func list_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver()
 	list := recv.(*List)
 	n := list.Len()
@@ -1455,7 +1462,24 @@ func list_pop(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	res := list.elems[i]
 	list.elems = append(list.elems[:i], list.elems[i+1:]...)
+	observeWriteList(thread, list)
 	return res, nil
+}
+
+func observeReadList(thread *Thread, recv *List) {
+	thread.observed.lists = append(thread.observed.lists, ListVersion{
+		value:    recv,
+		modified: recv.modified,
+	})
+}
+
+func observeWriteList(thread *Thread, recv *List) {
+	thread.cache.version++
+	recv.modified = thread.cache.version
+	thread.observed.lists = append(thread.observed.lists, ListVersion{
+		value:    recv,
+		modified: recv.modified,
+	})
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·capitalize

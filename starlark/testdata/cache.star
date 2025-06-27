@@ -74,3 +74,20 @@ f2 = outer(2)
 
 assert.eq(f1(), 1)
 assert.eq(f2(), 2)
+
+---
+load("assert.star", "assert")
+
+calls = []
+
+def f(name):
+  calls.append(name)
+
+calls.clear()
+f(1)
+assert.eq(calls, [1])
+
+calls.clear()
+f(1)
+f(2)
+assert.eq(calls, [1, 2])

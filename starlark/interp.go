@@ -102,7 +102,11 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		return cache.Value(cachedResult.result), nil
 	}
 
-	var obs Observed
+	// Push a new observed set onto the thread.
+	// TODO I need to also record every memoized call that I relied on as a dependency.
+	// If a memoized call is invalidated, I am invalidated too.
+	popObs := thread.observed
+	thread.observed = Observed{}
 
 	fr.locals = locals
 
@@ -455,14 +459,14 @@ loop:
 			x := stack[sp-3]
 			sp -= 3
 			err = setIndex(x, y, z)
+			if err != nil {
+				break loop
+			}
 			switch x := x.(type) {
 			case *List:
 				cache.version++
 				x.modified = cache.version
-				obs.lists = append(obs.lists, ListVersion{value: x, modified: x.modified})
-			}
-			if err != nil {
-				break loop
+				thread.observed.lists = append(thread.observed.lists, ListVersion{value: x, modified: x.modified})
 			}
 
 		case compile.INDEX:
@@ -470,16 +474,16 @@ loop:
 			x := stack[sp-2]
 			sp -= 2
 			z, err2 := getIndex(x, y)
-			switch x := x.(type) {
-			case *List:
-				obs.lists = append(obs.lists, ListVersion{value: x, modified: x.modified})
-			}
 			if err2 != nil {
 				err = err2
 				break loop
 			}
 			stack[sp] = z
 			sp++
+			switch x := x.(type) {
+			case *List:
+				thread.observed.lists = append(thread.observed.lists, ListVersion{value: x, modified: x.modified})
+			}
 
 		case compile.ATTR:
 			x := stack[sp-1]
@@ -539,6 +543,10 @@ loop:
 			}
 			stack[sp] = res
 			sp++
+			switch x := x.(type) {
+			case *List:
+				thread.observed.lists = append(thread.observed.lists, ListVersion{value: x, modified: x.modified})
+			}
 
 		case compile.UNPACK:
 			n := int(arg)
@@ -659,7 +667,7 @@ loop:
 
 		case compile.SETGLOBAL:
 			cache.version++
-			obs.globals = append(obs.globals, VariableValue{
+			thread.observed.globals = append(thread.observed.globals, VariableValue{
 				variable: int(arg),
 				value:    cache.Intern(stack[sp-1]),
 			})
@@ -695,7 +703,7 @@ loop:
 				err = fmt.Errorf("local variable %s referenced before assignment", f.FreeVars[arg].Name)
 				break loop
 			}
-			obs.cells = append(obs.cells, CellValue{
+			thread.observed.cells = append(thread.observed.cells, CellValue{
 				cell:  c,
 				value: cache.Intern(v),
 			})
@@ -708,7 +716,7 @@ loop:
 				err = fmt.Errorf("global variable %s referenced before assignment", f.Prog.Globals[arg].Name)
 				break loop
 			}
-			obs.globals = append(obs.globals, VariableValue{
+			thread.observed.globals = append(thread.observed.globals, VariableValue{
 				variable: int(arg),
 				value:    cache.Intern(x),
 			})
@@ -736,12 +744,12 @@ loop:
 	}
 
 	// Cache the result.
-	// Hack to get assign.star to pass
-	cacheable := fn.funcode.Name != "f"
 	// TODO if the result is stored inline in Intern and fast to compute, don't cache it.
-	if cacheable && err == nil && result != nil {
-		cache.Put(fn, internedArgs, obs, snapshot, cache.Intern(result))
+	if err == nil && result != nil {
+		cache.Put(fn, internedArgs, thread.observed, snapshot, cache.Intern(result))
 	}
+	// Restore the previous observed set.
+	thread.observed = popObs
 	// (deferred cleanup runs here)
 	return result, err
 }
