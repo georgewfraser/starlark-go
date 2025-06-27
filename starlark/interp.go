@@ -70,42 +70,15 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		internedArgs[i] = cache.Intern(locals[i])
 	}
 	cachedResult := cache.Get(fn, internedArgs)
-	// Validate that all observed captures match the current values.
-	if cachedResult != nil && cachedResult.verified != cache.version {
-		for _, c := range cachedResult.deps.globals {
-			if !cache.Intern(fn.module.globals[c.variable]).Eq(c.value) {
-				cachedResult = nil
-				break
-			}
-		}
-	}
-	if cachedResult != nil && cachedResult.verified != cache.version {
-		for _, c := range cachedResult.deps.cells {
-			if !cache.Intern(c.cell.v).Eq(c.value) {
-				cachedResult = nil
-				break
-			}
-		}
-	}
-	// Validate that all observed lists have not been modified.
-	if cachedResult != nil && cachedResult.verified != cache.version {
-		for _, m := range cachedResult.deps.lists {
-			if m.modified < m.value.modified {
-				cachedResult = nil
-				break
-			}
-		}
-	}
-	// If everything matches, return the cached result.
-	if cachedResult != nil {
-		cachedResult.verified = cache.version
+	if cachedResult != nil && cache.validate(cachedResult) {
+		thread.dependencies.calls = append(thread.dependencies.calls, cachedResult)
 		return cache.Value(cachedResult.result), nil
 	}
 
 	// Push a new observed set onto the thread.
 	// TODO I need to also record every memoized call that I relied on as a dependency.
 	// If a memoized call is invalidated, I am invalidated too.
-	popObs := thread.dependencies
+	parent := thread.dependencies
 	thread.dependencies = Dependencies{}
 
 	fr.locals = locals
@@ -746,10 +719,11 @@ loop:
 	// Cache the result.
 	// TODO if the result is stored inline in Intern and fast to compute, don't cache it.
 	if err == nil && result != nil {
-		cache.Put(fn, internedArgs, thread.dependencies, cache.Intern(result), snapshot)
+		rec := cache.Put(fn, internedArgs, thread.dependencies, cache.Intern(result), snapshot)
+		parent.calls = append(parent.calls, rec)
 	}
 	// Restore the previous observed set.
-	thread.dependencies = popObs
+	thread.dependencies = parent
 	// (deferred cleanup runs here)
 	return result, err
 }

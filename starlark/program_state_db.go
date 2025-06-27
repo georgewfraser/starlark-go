@@ -29,6 +29,7 @@ type Dependencies struct {
 	globals []VariableValue
 	cells   []CellValue
 	lists   []ListVersion
+	calls   []*Record
 }
 
 // Record memoizes the result of a function call along with the values of
@@ -41,7 +42,7 @@ type Record struct {
 	args     []Interned
 	deps     Dependencies
 	result   Interned
-	verified uint64 // ProgramStateDB.version when this record was last verified against observed.
+	verified uint64 // ProgramStateDB.version when this record was last verified against dependencies, or 0 if it has been shown to be stale.
 }
 
 // VariableValue records the value observed for a variable during execution of
@@ -100,14 +101,14 @@ func (db *ProgramStateDB) Get(function *Function, args []Interned) *Record {
 	return nil
 }
 
-func (db *ProgramStateDB) Put(function *Function, args []Interned, deps Dependencies, result Interned, verified uint64) {
+func (db *ProgramStateDB) Put(function *Function, args []Interned, deps Dependencies, result Interned, verified uint64) *Record {
 	idx := hashKey(function, args)
 	for i := 0; i < CACHE_SIZE; i++ {
 		pos := (idx + i) % CACHE_SIZE
 		rec := &db.memo[pos]
 		if rec.result.Empty() || (rec.function == function && argsEqual(rec.args, args)) {
 			db.memo[pos] = Record{function, args, deps, result, verified}
-			return
+			return &db.memo[pos]
 		}
 	}
 	panic("ProgramStateDB memo table full")
@@ -135,6 +136,48 @@ func argsEqual(a, b []Interned) bool {
 			return false
 		}
 	}
+	return true
+}
+
+// validate checks whether the given record is still valid under the
+// current ProgramStateDB version. It recursively validates any
+// dependent calls.
+func (db *ProgramStateDB) validate(rec *Record) bool {
+	if rec.verified == db.version {
+		return true
+	}
+	if rec.verified == 0 {
+		return false
+	}
+	// globals
+	for _, c := range rec.deps.globals {
+		if !db.Intern(rec.function.module.globals[c.variable]).Eq(c.value) {
+			rec.verified = 0
+			return false
+		}
+	}
+	// cells
+	for _, c := range rec.deps.cells {
+		if !db.Intern(c.cell.v).Eq(c.value) {
+			rec.verified = 0
+			return false
+		}
+	}
+	// lists
+	for _, m := range rec.deps.lists {
+		if m.modified < m.value.modified {
+			rec.verified = 0
+			return false
+		}
+	}
+	// calls
+	for _, call := range rec.deps.calls {
+		if !db.validate(call) {
+			rec.verified = 0
+			return false
+		}
+	}
+	rec.verified = db.version
 	return true
 }
 
