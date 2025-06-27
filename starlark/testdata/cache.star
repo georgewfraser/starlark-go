@@ -91,3 +91,20 @@ calls.clear()
 f(1)
 f(2)
 assert.eq(calls, [1, 2])
+
+---
+# option:globalreassign
+load("assert.star", "assert")
+
+counter = [0]
+def f():
+    def g():
+        counter[0] += 1
+        return counter[0]
+    return g()
+
+f1 = f()
+f2 = f()
+
+assert.eq(f1, 1)
+assert.eq(f2, 2) # Modification of counter invalidates g(), which is a dependency of f(), which invalidates f.
