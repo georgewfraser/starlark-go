@@ -69,8 +69,8 @@ type Thread struct {
 	// cache stores state for function call memoization.
 	cache *ProgramStateDB
 
-	// observed records reads and writes to globals, captured variables, and mutables.
-	observed Dependencies
+	// dependencies records reads and writes to globals, captured variables, and mutables.
+	dependencies Dependencies
 
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration

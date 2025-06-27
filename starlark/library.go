@@ -1467,7 +1467,7 @@ func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 }
 
 func observeReadList(thread *Thread, recv *List) {
-	thread.observed.lists = append(thread.observed.lists, ListVersion{
+	thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{
 		value:    recv,
 		modified: recv.modified,
 	})
@@ -1476,7 +1476,7 @@ func observeReadList(thread *Thread, recv *List) {
 func observeWriteList(thread *Thread, recv *List) {
 	thread.cache.version++
 	recv.modified = thread.cache.version
-	thread.observed.lists = append(thread.observed.lists, ListVersion{
+	thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{
 		value:    recv,
 		modified: recv.modified,
 	})
