@@ -709,7 +709,6 @@ type module struct {
 	predeclared StringDict
 	globals     []Value
 	constants   []Value
-	cache       *ProgramStateDB
 }
 
 // makeGlobalDict returns a new, unfrozen StringDict containing all global

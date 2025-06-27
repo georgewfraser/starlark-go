@@ -66,6 +66,9 @@ type Thread struct {
 	// They are accessible to the client but not to any Starlark program.
 	locals map[string]interface{}
 
+	// cache stores state for function call memoization.
+	cache *ProgramStateDB
+
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
 }
@@ -525,7 +528,6 @@ func makeToplevelFunction(prog *compile.Program, predeclared StringDict) *Functi
 			predeclared: predeclared,
 			globals:     make([]Value, len(prog.Globals)),
 			constants:   constants,
-			cache:       NewProgramStateDB(),
 		},
 	}
 }

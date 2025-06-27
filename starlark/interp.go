@@ -60,7 +60,10 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		return nil, thread.evalError(err)
 	}
 
-	cache := fn.module.cache
+	if thread.cache == nil {
+		thread.cache = NewProgramStateDB()
+	}
+	cache := thread.cache
 	snapshot := cache.version
 	internedArgs := make([]Interned, fn.NumParams())
 	for i := range internedArgs {
