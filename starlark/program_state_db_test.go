@@ -1,71 +1,96 @@
 package starlark
 
-import (
-	"testing"
-)
+import "testing"
 
-func TestIntern(t *testing.T) {
+// helpers produce dynamic values to avoid compile-time optimizations.
+func dynamicInt(i int) int          { return i + 0 }
+func dynamicString(s string) string { return s + "" }
+
+func TestInternDistinctObjectsNotEqual(t *testing.T) {
 	db := NewProgramStateDB()
-
-	s1 := Value(String(dynamicString("1")))
-	s2 := Value(String(dynamicString("1")))
-
-	// Large values should be interned as distinct values even if they are equal.
+	s1 := Value(String(dynamicString("a")))
+	s2 := Value(String(dynamicString("a")))
 	i1 := db.Intern(s1)
-	i1again := db.Intern(s1)
 	i2 := db.Intern(s2)
 	if i1.Eq(i2) {
-		t.Fatalf("expected interned values to be distinct for strings")
-	}
-
-	// But if they're the same object, they should be equal.
-	if !i1again.Eq(i1) {
-		t.Fatalf("expected interned values to be equal for same object")
-	}
-
-	// Identical values should be equal when I convert them back to Value.
-	if db.Value(i1) != db.Value(i2) {
-		t.Fatalf("expected interned values to match when converted back to Value")
+		t.Fatalf("interned values of distinct objects should not be equal")
 	}
 }
 
-func dynamicInt(i int) int {
-	return i + 0
+func TestInternSameObjectEqual(t *testing.T) {
+	db := NewProgramStateDB()
+	v := Value(String(dynamicString("b")))
+	i1 := db.Intern(v)
+	i2 := db.Intern(v)
+	if !i1.Eq(i2) {
+		t.Fatalf("interning the same object twice should yield equal references")
+	}
 }
 
-func dynamicString(s string) string {
-	return s + ""
+func TestInternValueRoundTrip(t *testing.T) {
+	db := NewProgramStateDB()
+	v := Value(String(dynamicString("foo")))
+	i := db.Intern(v)
+	if got := db.Value(i); got != v {
+		t.Fatalf("expected round trip value, got %v", got)
+	}
+}
+
+func TestInternEmpty(t *testing.T) {
+	var zero Interned
+	if !zero.Empty() {
+		t.Fatalf("zero Interned should report empty")
+	}
+	db := NewProgramStateDB()
+	nonzero := db.Intern(MakeInt(dynamicInt(1)))
+	if nonzero.Empty() {
+		t.Fatalf("non-empty Interned reported empty")
+	}
 }
 
 func TestProgramStateDBPutGet(t *testing.T) {
 	db := NewProgramStateDB()
 	fn := &Function{}
 	arg := db.Intern(MakeInt(dynamicInt(42)))
-	res := db.Intern(String("result"))
-	free := []VariableValue{
-		{variable: 1, value: arg},
-		{variable: 2, value: res},
-	}
-	db.Put(fn, []Interned{arg}, Observed{globals: free}, 0, res)
+	result := db.Intern(String("result"))
+	obs := Observed{globals: []VariableValue{{variable: 1, value: arg}}}
+
+	db.Put(fn, []Interned{arg}, obs, 7, result)
 	rec := db.Get(fn, []Interned{arg})
 	if rec == nil {
-		t.Fatalf("expected record to be found")
+		t.Fatalf("expected cached record")
 	}
-	if !rec.result.Eq(res) || rec.function != fn || len(rec.args) != 1 || !rec.args[0].Eq(arg) {
-		t.Fatalf("record mismatch")
+	if rec.function != fn || !rec.result.Eq(result) || len(rec.args) != 1 || !rec.args[0].Eq(arg) {
+		t.Fatalf("record contents mismatch")
 	}
-	if len(rec.globals) != 2 || rec.globals[0].variable != 1 || !rec.globals[0].value.Eq(arg) ||
-		rec.globals[1].variable != 2 || !rec.globals[1].value.Eq(res) {
-		t.Fatalf("captures mismatch")
-	}
-
-	// request with different arg should miss
-	miss := db.Get(fn, []Interned{db.Intern(MakeInt(dynamicInt(43)))})
-	if miss != nil {
-		t.Fatalf("expected cache miss")
+	if rec.Observed.globals[0].variable != 1 || !rec.Observed.globals[0].value.Eq(arg) {
+		t.Fatalf("observed globals mismatch")
 	}
 }
 
-func TestProgramStateDBCollision(t *testing.T) {
-	// TODO
+func TestProgramStateDBGetWrongArgument(t *testing.T) {
+	db := NewProgramStateDB()
+	fn := &Function{}
+	arg := db.Intern(MakeInt(dynamicInt(1)))
+	result := db.Intern(String("ok"))
+	db.Put(fn, []Interned{arg}, Observed{}, 0, result)
+
+	miss := db.Get(fn, []Interned{db.Intern(MakeInt(dynamicInt(2)))})
+	if miss != nil {
+		t.Fatalf("expected cache miss for different argument")
+	}
+}
+
+func TestProgramStateDBGetWrongFunction(t *testing.T) {
+	db := NewProgramStateDB()
+	fn1 := &Function{}
+	fn2 := &Function{}
+	arg := db.Intern(MakeInt(dynamicInt(3)))
+	result := db.Intern(String("x"))
+	db.Put(fn1, []Interned{arg}, Observed{}, 0, result)
+
+	miss := db.Get(fn2, []Interned{arg})
+	if miss != nil {
+		t.Fatalf("expected cache miss for different function")
+	}
 }
