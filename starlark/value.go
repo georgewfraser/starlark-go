@@ -919,7 +919,7 @@ type List struct {
 	elems     []Value
 	frozen    bool
 	itercount uint32 // number of active iterators (ignored if frozen)
-	version   int
+	modified  uint64
 }
 
 // NewList returns a list containing the specified elements.

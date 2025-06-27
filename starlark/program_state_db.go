@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	"github.com/cespare/xxhash/v2"
-	"go.starlark.net/internal/compile"
 )
 
 // CACHE_SIZE is calculated so the empty memo array is 1 MB in size.
@@ -17,7 +16,12 @@ type ProgramStateDB struct {
 	// program pointer, function identifier, and its arguments. In the event
 	// of a hash collision we evict the existing entry and replace it with
 	// the new one.
+	// TODO change this to a regular open addressing hash table with eviction based on the clock algorithm.
 	memo [CACHE_SIZE]Record
+	// version is bumped every time a mutable or captured variable is updated.
+	// This allows us to invalidate the cache when the program state changes,
+	// but skip validation if no changes were made globally, which is common.
+	version uint64
 }
 
 // Record memoizes the result of a function call along with the values of
@@ -29,31 +33,40 @@ type ProgramStateDB struct {
 // The interpreter records these slices while executing a function body
 // and the cache uses them to detect invalidation when values change.
 type Observed struct {
-	free   []Capture
-	locals []Capture
-	lists  []ListVersion
+	globals []VariableValue
+	cells   []CellValue
+	lists   []ListVersion
 }
 
 type Record struct {
-	program  *compile.Program
-	function int
+	function *Function
 	args     []Interned
 	Observed
-	result Interned
+	result   Interned
+	verified uint64 // ProgramStateDB.version when this record was last verified against observed.
 }
 
-// Capture records the value observed for a variable during execution of
+// VariableValue records the value observed for a variable during execution of
 // a function body. A single variable may appear multiple times if it was
 // read and then written with a different value.
-type Capture struct {
+type VariableValue struct {
 	variable int
 	value    Interned
 }
 
+// CellValue records the value observed for a captured free variable,
+// which is stored by the runtime in a cell. The same capture can generate
+// any number of cells for multiple executions of the outer function,
+// so we need to handle these like mutables rather than like globals.
+type CellValue struct {
+	cell  *cell
+	value Interned
+}
+
 // ListVersion records the version of a list observed during execution.
 type ListVersion struct {
-	value   *List
-	version int
+	value    *List
+	modified uint64
 }
 
 // Interned is a reference to an interned value in the program state database.
@@ -74,8 +87,8 @@ func (db *ProgramStateDB) Value(value Interned) Value {
 	return value.value
 }
 
-func (db *ProgramStateDB) Get(program *compile.Program, function int, args []Interned) *Record {
-	idx := hashKey(program, function, args)
+func (db *ProgramStateDB) Get(function *Function, args []Interned) *Record {
+	idx := hashKey(function, args)
 	rec := &db.memo[idx]
 
 	// If the entry is empty, return nil.
@@ -84,7 +97,7 @@ func (db *ProgramStateDB) Get(program *compile.Program, function int, args []Int
 	}
 
 	// If the entry is a collision, return nil.
-	if rec.program != program || rec.function != function {
+	if rec.function != function {
 		return nil
 	}
 	for i := range rec.args {
@@ -96,9 +109,9 @@ func (db *ProgramStateDB) Get(program *compile.Program, function int, args []Int
 	return rec
 }
 
-func (db *ProgramStateDB) Put(program *compile.Program, function int, args []Interned, obs Observed, result Interned) {
-	idx := hashKey(program, function, args)
-	db.memo[idx] = Record{program: program, function: function, args: args, Observed: obs, result: result}
+func (db *ProgramStateDB) Put(function *Function, args []Interned, obs Observed, verified uint64, result Interned) {
+	idx := hashKey(function, args)
+	db.memo[idx] = Record{function: function, args: args, Observed: obs, result: result, verified: verified}
 }
 
 // Eq checks if two Interned values are equal by identity.
@@ -116,12 +129,10 @@ func (i Interned) words() [2]uintptr {
 
 // index computes the position within the memo table for the given key.
 // hash computes the memo table index for the given key.
-func hashKey(program *compile.Program, function int, args []Interned) int {
+func hashKey(function *Function, args []Interned) int {
 	var buf [8]byte
 	h := xxhash.New()
-	binary.LittleEndian.PutUint64(buf[:], uint64(uintptr(unsafe.Pointer(program))))
-	_, _ = h.Write(buf[:])
-	binary.LittleEndian.PutUint64(buf[:], uint64(function))
+	binary.LittleEndian.PutUint64(buf[:], uint64(uintptr(unsafe.Pointer(function))))
 	_, _ = h.Write(buf[:])
 	for _, a := range args {
 		words := a.words()

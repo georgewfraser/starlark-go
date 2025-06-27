@@ -60,40 +60,43 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		return nil, thread.evalError(err)
 	}
 
+	cache := fn.module.cache
+	snapshot := cache.version
 	internedArgs := make([]Interned, fn.NumParams())
 	for i := range internedArgs {
-		internedArgs[i] = fn.module.cache.Intern(locals[i])
+		internedArgs[i] = cache.Intern(locals[i])
 	}
-	cachedResult := fn.module.cache.Get(fn.module.program, fn.id, internedArgs)
+	cachedResult := cache.Get(fn, internedArgs)
 	// Validate that all observed captures match the current values.
-	if cachedResult != nil {
-		for _, c := range cachedResult.free {
-			if !fn.module.cache.Intern(fn.module.globals[c.variable]).Eq(c.value) {
+	if cachedResult != nil && cachedResult.verified != cache.version {
+		for _, c := range cachedResult.globals {
+			if !cache.Intern(fn.module.globals[c.variable]).Eq(c.value) {
 				cachedResult = nil
 				break
 			}
 		}
 	}
-	if cachedResult != nil {
-		for _, c := range cachedResult.locals {
-			if !fn.module.cache.Intern(fn.freevars[c.variable]).Eq(c.value) {
+	if cachedResult != nil && cachedResult.verified != cache.version {
+		for _, c := range cachedResult.cells {
+			if !cache.Intern(c.cell.v).Eq(c.value) {
 				cachedResult = nil
 				break
 			}
 		}
 	}
-	// Validate that all observed lists match the current versions.
-	if cachedResult != nil {
+	// Validate that all observed lists have not been modified.
+	if cachedResult != nil && cachedResult.verified != cache.version {
 		for _, m := range cachedResult.lists {
-			if m.value.version != m.version {
+			if m.modified < m.value.modified {
 				cachedResult = nil
 				break
 			}
 		}
 	}
-	// If everything matches, return the cached result immediately.
+	// If everything matches, return the cached result.
 	if cachedResult != nil {
-		return fn.module.cache.Value(cachedResult.result), nil
+		cachedResult.verified = cache.version
+		return cache.Value(cachedResult.result), nil
 	}
 
 	var obs Observed
@@ -451,8 +454,9 @@ loop:
 			err = setIndex(x, y, z)
 			switch x := x.(type) {
 			case *List:
-				x.version++
-				obs.lists = append(obs.lists, ListVersion{value: x, version: x.version})
+				cache.version++
+				x.modified = cache.version
+				obs.lists = append(obs.lists, ListVersion{value: x, modified: x.modified})
 			}
 			if err != nil {
 				break loop
@@ -465,7 +469,7 @@ loop:
 			z, err2 := getIndex(x, y)
 			switch x := x.(type) {
 			case *List:
-				obs.lists = append(obs.lists, ListVersion{value: x, version: x.version})
+				obs.lists = append(obs.lists, ListVersion{value: x, modified: x.modified})
 			}
 			if err2 != nil {
 				err = err2
@@ -591,6 +595,11 @@ loop:
 			n := len(tuple) - len(funcode.FreeVars)
 			defaults := tuple[:n:n]
 			freevars := tuple[n:]
+			// Every time we call MAKEFUNC, we create a new Function value.
+			// The Function is part of the cache key by identity,
+			// so this means that certain patterns, for example currying,
+			// will break the cache.
+			// This could be fixed by caching on *Program, Function.id, and interned freevars.
 			stack[sp-1] = &Function{
 				id:       int(arg),
 				funcode:  funcode,
@@ -638,13 +647,18 @@ loop:
 			sp--
 
 		case compile.SETLOCALCELL:
+			// other functions have observed this cell, so we need to bump the cache version to bust their cache.
+			// however we don't need to count this as an observation because from the perspective of this function
+			// it is just a local variable.
+			cache.version++
 			locals[arg].(*cell).v = stack[sp-1]
 			sp--
 
 		case compile.SETGLOBAL:
-			obs.free = append(obs.free, Capture{
+			cache.version++
+			obs.globals = append(obs.globals, VariableValue{
 				variable: int(arg),
-				value:    fn.module.cache.Intern(stack[sp-1]),
+				value:    cache.Intern(stack[sp-1]),
 			})
 			fn.module.globals[arg] = stack[sp-1]
 			sp--
@@ -659,10 +673,6 @@ loop:
 			sp++
 
 		case compile.FREE:
-			obs.locals = append(obs.locals, Capture{
-				variable: int(arg),
-				value:    fn.module.cache.Intern(fn.freevars[arg]),
-			})
 			stack[sp] = fn.freevars[arg]
 			sp++
 
@@ -676,14 +686,15 @@ loop:
 			sp++
 
 		case compile.FREECELL:
-			v := fn.freevars[arg].(*cell).v
+			c := fn.freevars[arg].(*cell)
+			v := c.v
 			if v == nil {
 				err = fmt.Errorf("local variable %s referenced before assignment", f.FreeVars[arg].Name)
 				break loop
 			}
-			obs.locals = append(obs.locals, Capture{
-				variable: int(arg),
-				value:    fn.module.cache.Intern(v),
+			obs.cells = append(obs.cells, CellValue{
+				cell:  c,
+				value: cache.Intern(v),
 			})
 			stack[sp] = v
 			sp++
@@ -694,9 +705,9 @@ loop:
 				err = fmt.Errorf("global variable %s referenced before assignment", f.Prog.Globals[arg].Name)
 				break loop
 			}
-			obs.free = append(obs.free, Capture{
+			obs.globals = append(obs.globals, VariableValue{
 				variable: int(arg),
-				value:    fn.module.cache.Intern(x),
+				value:    cache.Intern(x),
 			})
 			stack[sp] = x
 			sp++
@@ -724,8 +735,9 @@ loop:
 	// Cache the result.
 	// Hack to get assign.star to pass
 	cacheable := fn.funcode.Name != "f"
+	// TODO if the result is stored inline in Intern and fast to compute, don't cache it.
 	if cacheable && err == nil && result != nil {
-		fn.module.cache.Put(fn.module.program, fn.id, internedArgs, obs, fn.module.cache.Intern(result))
+		cache.Put(fn, internedArgs, obs, snapshot, cache.Intern(result))
 	}
 	// (deferred cleanup runs here)
 	return result, err

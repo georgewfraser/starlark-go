@@ -60,3 +60,17 @@ def counter():
 
 assert.eq(counter(), 1)
 assert.eq(counter(), 2) # Modification of list busts the cache
+
+---
+load("assert.star", "assert")
+
+def outer(x):
+    def inner():
+        return x
+    return inner
+
+f1 = outer(1)
+f2 = outer(2)
+
+assert.eq(f1(), 1)
+assert.eq(f2(), 2)
