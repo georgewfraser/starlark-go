@@ -64,7 +64,7 @@ var (
 func LoadAssertModule() (starlark.StringDict, error) {
 	once.Do(func() {
 		predeclared := starlark.StringDict{
-			"error":    starlark.NewBuiltin("error", error_),
+			"error":    starlark.NewBuiltinWithEffects("error", error_),
 			"catch":    starlark.NewBuiltin("catch", catch),
 			"matches":  starlark.NewBuiltin("matches", matches),
 			"module":   starlark.NewBuiltin("module", starlarkstruct.MakeModule),

@@ -76,12 +76,6 @@ type Thread struct {
 	proftime time.Duration
 }
 
-// TODO this should not be necessary
-func (thread *Thread) Reset() {
-	var zero [CACHE_SIZE]Record
-	thread.cache.memo = zero
-}
-
 // ExecutionSteps returns the current value of Steps.
 func (thread *Thread) ExecutionSteps() uint64 {
 	return thread.Steps

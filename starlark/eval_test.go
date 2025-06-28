@@ -160,7 +160,6 @@ func TestExecFile(t *testing.T) {
 	} {
 		filename := filepath.Join(testdata, file)
 		for _, chunk := range chunkedfile.Read(filename, t) {
-			thread.Reset()
 			predeclared := starlark.StringDict{
 				"hasfields": starlark.NewBuiltin("hasfields", newHasFields),
 				"fibonacci": fib{},
