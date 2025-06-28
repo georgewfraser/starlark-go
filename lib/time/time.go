@@ -55,7 +55,7 @@ var Module = &starlarkstruct.Module{
 	Members: starlark.StringDict{
 		"from_timestamp":    starlark.NewBuiltin("from_timestamp", fromTimestamp),
 		"is_valid_timezone": starlark.NewBuiltin("is_valid_timezone", isValidTimezone),
-		"now":               starlark.NewBuiltin("now", now),
+		"now":               starlark.NewBuiltinWithEffects("now", now),
 		"parse_duration":    starlark.NewBuiltin("parse_duration", parseDuration),
 		"parse_time":        starlark.NewBuiltin("parse_time", parseTime),
 		"time":              starlark.NewBuiltin("time", newTime),
