@@ -981,7 +981,7 @@ func (rf *RepeatedField) Type() string {
 	return fmt.Sprintf("proto.repeated<%s>", typeString(rf.typ))
 }
 
-func (rf *RepeatedField) SetIndex(i int, v starlark.Value) error {
+func (rf *RepeatedField) SetIndex(_ *starlark.Thread, i int, v starlark.Value) error {
 	if err := rf.checkMutable("insert into"); err != nil {
 		return err
 	}

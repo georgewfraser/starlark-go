@@ -67,13 +67,19 @@ type Thread struct {
 	locals map[string]interface{}
 
 	// cache stores state for function call memoization.
-	cache *ProgramStateDB
+	cache ProgramStateDB
 
 	// dependencies records reads and writes to globals, captured variables, and mutables.
 	dependencies Dependencies
 
 	// proftime holds the accumulated execution time since the last profile event.
 	proftime time.Duration
+}
+
+// TODO this should not be necessary
+func (thread *Thread) Reset() {
+	var zero [CACHE_SIZE]Record
+	thread.cache.memo = zero
 }
 
 // ExecutionSteps returns the current value of Steps.
@@ -625,11 +631,14 @@ func makeExprFunc(opts *syntax.FileOptions, expr syntax.Expr, env StringDict) (*
 // The following functions are primitive operations of the byte code interpreter.
 
 // list += iterable
-func listExtend(x *List, y Iterable) {
+func listExtend(thread *Thread, x *List, y Iterable) {
 	if ylist, ok := y.(*List); ok {
+		thread.readList(ylist)
+		thread.writeList(x)
 		// fast path: list += list
 		x.elems = append(x.elems, ylist.elems...)
 	} else {
+		thread.writeList(x)
 		iter := y.Iterate()
 		defer iter.Done()
 		var z Value
@@ -685,7 +694,7 @@ func setField(x Value, name string, y Value) error {
 }
 
 // getIndex implements x[y].
-func getIndex(x, y Value) (Value, error) {
+func getIndex(thread *Thread, x, y Value) (Value, error) {
 	switch x := x.(type) {
 	case Mapping: // dict
 		z, found, err := x.Get(y)
@@ -710,6 +719,9 @@ func getIndex(x, y Value) (Value, error) {
 		if i < 0 || i >= n {
 			return nil, outOfRange(origI, n, x)
 		}
+		if tlist, ok := x.(*List); ok && thread != nil {
+			thread.readList(tlist)
+		}
 		return x.Index(i), nil
 	}
 	return nil, fmt.Errorf("unhandled index operation %s[%s]", x.Type(), y.Type())
@@ -724,7 +736,7 @@ func outOfRange(i, n int, x Value) error {
 }
 
 // setIndex implements x[y] = z.
-func setIndex(x, y, z Value) error {
+func setIndex(thread *Thread, x, y, z Value) error {
 	switch x := x.(type) {
 	case HasSetKey:
 		if err := x.SetKey(y, z); err != nil {
@@ -744,7 +756,11 @@ func setIndex(x, y, z Value) error {
 		if i < 0 || i >= n {
 			return outOfRange(origI, n, x)
 		}
-		return x.SetIndex(i, z)
+		if list, ok := x.(*List); ok && thread != nil {
+			thread.writeList(list)
+			return list.SetIndex(thread, i, z)
+		}
+		return x.SetIndex(thread, i, z)
 
 	default:
 		return fmt.Errorf("%s value does not support item assignment", x.Type())

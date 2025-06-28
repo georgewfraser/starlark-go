@@ -1331,6 +1331,7 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := recv.checkMutable("append to"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	thread.writeList(recv)
 	recv.elems = append(recv.elems, object)
 	return None, nil
 }
@@ -1341,7 +1342,7 @@ func list_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, err
 	}
 	recv := b.Receiver().(*List)
-	if err := recv.Clear(); err != nil {
+	if err := recv.Clear(thread); err != nil {
 		return nil, nameErr(b, err)
 	}
 	return None, nil
@@ -1357,7 +1358,7 @@ func list_extend(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := recv.checkMutable("extend"); err != nil {
 		return nil, nameErr(b, err)
 	}
-	listExtend(recv, iterable)
+	listExtend(thread, recv, iterable)
 	return None, nil
 }
 
@@ -1369,6 +1370,7 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	}
 
 	recv := b.Receiver().(*List)
+	thread.readList(recv)
 	start, end, err := indices(start_, end_, recv.Len())
 	if err != nil {
 		return nil, nameErr(b, err)
@@ -1401,12 +1403,16 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	}
 
 	if index >= recv.Len() {
+		thread.readList(recv)
+		thread.writeList(recv)
 		// end
 		recv.elems = append(recv.elems, object)
 	} else {
 		if index < 0 {
 			index = 0 // start
 		}
+		thread.readList(recv)
+		thread.writeList(recv)
 		recv.elems = append(recv.elems, nil)
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
@@ -1424,10 +1430,12 @@ func list_remove(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := recv.checkMutable("remove from"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	thread.readList(recv)
 	for i, elem := range recv.elems {
 		if eq, err := Equal(elem, value); err != nil {
 			return nil, fmt.Errorf("remove: %v", err)
 		} else if eq {
+			thread.writeList(recv)
 			recv.elems = append(recv.elems[:i], recv.elems[i+1:]...)
 			return None, nil
 		}
@@ -1454,7 +1462,9 @@ func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := list.checkMutable("pop from"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	thread.readList(list)
 	res := list.elems[i]
+	thread.writeList(list)
 	list.elems = append(list.elems[:i], list.elems[i+1:]...)
 	return res, nil
 }

@@ -60,10 +60,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		return nil, thread.evalError(err)
 	}
 
-	if thread.cache == nil {
-		thread.cache = NewProgramStateDB()
-	}
-	cache := thread.cache
+	cache := &thread.cache
 	snapshot := cache.version
 	internedArgs := make([]Interned, fn.NumParams())
 	for i := range internedArgs {
@@ -241,7 +238,7 @@ loop:
 					if err = xlist.checkMutable("apply += to"); err != nil {
 						break loop
 					}
-					listExtend(xlist, yiter)
+					listExtend(thread, xlist, yiter)
 					z = xlist
 				}
 			}
@@ -431,7 +428,7 @@ loop:
 			y := stack[sp-2]
 			x := stack[sp-3]
 			sp -= 3
-			err = setIndex(x, y, z)
+			err = setIndex(thread, x, y, z)
 			if err != nil {
 				break loop
 			}
@@ -440,7 +437,7 @@ loop:
 			y := stack[sp-1]
 			x := stack[sp-2]
 			sp -= 2
-			z, err2 := getIndex(x, y)
+			z, err2 := getIndex(thread, x, y)
 			if err2 != nil {
 				err = err2
 				break loop
@@ -491,6 +488,8 @@ loop:
 			elem := stack[sp-1]
 			list := stack[sp-2].(*List)
 			sp -= 2
+			thread.readList(list)
+			thread.writeList(list)
 			list.elems = append(list.elems, elem)
 
 		case compile.SLICE:

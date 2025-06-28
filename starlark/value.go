@@ -240,7 +240,7 @@ type Sliceable interface {
 // evaluator does this before the call.
 type HasSetIndex interface {
 	Indexable
-	SetIndex(index int, v Value) error
+	SetIndex(thread *Thread, index int, v Value) error
 }
 
 var (
@@ -1029,26 +1029,29 @@ func (it *listIterator) Done() {
 	}
 }
 
-func (l *List) SetIndex(i int, v Value) error {
+func (l *List) SetIndex(thread *Thread, i int, v Value) error {
 	if err := l.checkMutable("assign to element of"); err != nil {
 		return err
 	}
+	thread.writeList(l)
 	l.elems[i] = v
 	return nil
 }
 
-func (l *List) Append(v Value) error {
+func (l *List) Append(thread *Thread, v Value) error {
 	if err := l.checkMutable("append to"); err != nil {
 		return err
 	}
+	thread.writeList(l)
 	l.elems = append(l.elems, v)
 	return nil
 }
 
-func (l *List) Clear() error {
+func (l *List) Clear(thread *Thread) error {
 	if err := l.checkMutable("clear"); err != nil {
 		return err
 	}
+	thread.writeList(l)
 	for i := range l.elems {
 		l.elems[i] = nil // aid GC
 	}
