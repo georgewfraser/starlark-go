@@ -97,9 +97,9 @@ func (b benchmark) Attr(name string) (starlark.Value, error) {
 }
 
 var (
-	benchmarkRestart = starlark.NewBuiltin("restart", benchmarkRestartImpl)
-	benchmarkStart   = starlark.NewBuiltin("start", benchmarkStartImpl)
-	benchmarkStop    = starlark.NewBuiltin("stop", benchmarkStopImpl)
+	benchmarkRestart = starlark.NewBuiltinWithEffects("restart", benchmarkRestartImpl)
+	benchmarkStart   = starlark.NewBuiltinWithEffects("start", benchmarkStartImpl)
+	benchmarkStop    = starlark.NewBuiltinWithEffects("stop", benchmarkStopImpl)
 )
 
 func benchmarkRestartImpl(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
