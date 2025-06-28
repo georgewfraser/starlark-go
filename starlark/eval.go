@@ -1688,3 +1688,19 @@ func is[T any](x any) bool {
 	_, ok := x.(T)
 	return ok
 }
+
+func (thread *Thread) readList(recv *List) {
+	thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{
+		value:    recv,
+		modified: recv.modified,
+	})
+}
+
+func (thread *Thread) writeList(recv *List) {
+	thread.cache.version++
+	recv.modified = thread.cache.version
+	thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{
+		value:    recv,
+		modified: recv.modified,
+	})
+}

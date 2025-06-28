@@ -1332,7 +1332,6 @@ func list_append(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, nameErr(b, err)
 	}
 	recv.elems = append(recv.elems, object)
-	observeWriteList(thread, recv)
 	return None, nil
 }
 
@@ -1345,7 +1344,6 @@ func list_clear(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 	if err := recv.Clear(); err != nil {
 		return nil, nameErr(b, err)
 	}
-	observeWriteList(thread, recv)
 	return None, nil
 }
 
@@ -1360,7 +1358,6 @@ func list_extend(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		return nil, nameErr(b, err)
 	}
 	listExtend(recv, iterable)
-	observeWriteList(thread, recv)
 	return None, nil
 }
 
@@ -1381,7 +1378,6 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
 		} else if eq {
-			observeReadList(thread, recv)
 			return MakeInt(i), nil
 		}
 	}
@@ -1415,7 +1411,6 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
 	}
-	observeWriteList(thread, recv)
 	return None, nil
 }
 
@@ -1434,7 +1429,6 @@ func list_remove(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 			return nil, fmt.Errorf("remove: %v", err)
 		} else if eq {
 			recv.elems = append(recv.elems[:i], recv.elems[i+1:]...)
-			observeWriteList(thread, recv)
 			return None, nil
 		}
 	}
@@ -1462,24 +1456,7 @@ func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	}
 	res := list.elems[i]
 	list.elems = append(list.elems[:i], list.elems[i+1:]...)
-	observeWriteList(thread, list)
 	return res, nil
-}
-
-func observeReadList(thread *Thread, recv *List) {
-	thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{
-		value:    recv,
-		modified: recv.modified,
-	})
-}
-
-func observeWriteList(thread *Thread, recv *List) {
-	thread.cache.version++
-	recv.modified = thread.cache.version
-	thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{
-		value:    recv,
-		modified: recv.modified,
-	})
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·capitalize
