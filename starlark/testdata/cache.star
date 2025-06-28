@@ -231,3 +231,15 @@ def mutable_len():
 assert.eq(mutable_len(), 1)
 mutable.clear()
 assert.eq(mutable_len(), 0) # Modification of mutable busts the cache
+
+---
+load("assert.star", "assert")
+
+mutable = [1]
+
+def try_to_set():
+    mutable[0] = 1
+
+try_to_set()
+mutable.freeze()
+assert.fails(try_to_set, "cannot assign to element of frozen list")
