@@ -219,3 +219,15 @@ def is_one_using_slice():
 assert.eq(is_one_using_slice(), True)
 mutable[0] = 2
 assert.eq(is_one_using_slice(), False) # Modification of mutable busts the cache
+
+---
+load("assert.star", "assert")
+
+mutable = [1]
+
+def mutable_len():
+    return len(mutable)
+
+assert.eq(mutable_len(), 1)
+mutable.clear()
+assert.eq(mutable_len(), 0) # Modification of mutable busts the cache
