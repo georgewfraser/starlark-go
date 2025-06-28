@@ -792,9 +792,10 @@ func (fn *Function) FreeVar(i int) (Binding, Value) {
 
 // A Builtin is a function implemented in Go.
 type Builtin struct {
-	name string
-	fn   func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
-	recv Value // for bound methods (e.g. "".startswith)
+	name    string
+	fn      func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)
+	recv    Value // for bound methods (e.g. "".startswith)
+	effects bool  // true if the function has side effects that can't be cached.
 }
 
 func (b *Builtin) Name() string { return b.name }
@@ -814,6 +815,9 @@ func (b *Builtin) Receiver() Value { return b.recv }
 func (b *Builtin) String() string  { return toString(b) }
 func (b *Builtin) Type() string    { return "builtin_function_or_method" }
 func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
+	if b.effects {
+		thread.dependencies.effects = true
+	}
 	return b.fn(thread, b, args, kwargs)
 }
 func (b *Builtin) Truth() Bool { return true }
@@ -822,6 +826,10 @@ func (b *Builtin) Truth() Bool { return true }
 // and implementation.  It compares unequal with all other values.
 func NewBuiltin(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)) *Builtin {
 	return &Builtin{name: name, fn: fn}
+}
+
+func NewBuiltinWithEffects(name string, fn func(thread *Thread, fn *Builtin, args Tuple, kwargs []Tuple) (Value, error)) *Builtin {
+	return &Builtin{name: name, fn: fn, effects: true}
 }
 
 // BindReceiver returns a new Builtin value representing a method

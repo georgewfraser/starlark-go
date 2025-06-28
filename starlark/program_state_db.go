@@ -30,6 +30,7 @@ type Dependencies struct {
 	cells   []CellValue
 	lists   []ListVersion
 	calls   []*Record
+	effects bool // true for builtin functions that have side effects that are not captured in the dependencies.
 }
 
 // Record memoizes the result of a function call along with the values of

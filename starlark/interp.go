@@ -704,7 +704,7 @@ loop:
 
 	// Cache the result.
 	// TODO if the result is stored inline in Intern and fast to compute, don't cache it.
-	if err == nil && result != nil {
+	if err == nil && result != nil && !thread.dependencies.effects {
 		rec := cache.Put(fn, internedArgs, thread.dependencies, cache.Intern(result), snapshot)
 		parent.calls = append(parent.calls, rec)
 	}
