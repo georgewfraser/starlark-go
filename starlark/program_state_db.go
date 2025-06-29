@@ -30,6 +30,7 @@ type Dependencies struct {
 	cells   []CellValue
 	lists   []ListVersion
 	dicts   []DictVersion
+	sets    []SetVersion
 	calls   []*Record
 	effects bool // true for builtin functions that have side effects that are not captured in the dependencies.
 }
@@ -73,6 +74,12 @@ type ListVersion struct {
 // DictVersion records the version of a dict observed during execution.
 type DictVersion struct {
 	value    *Dict
+	modified uint64
+}
+
+// SetVersion records the version of a set observed during execution.
+type SetVersion struct {
+	value    *Set
 	modified uint64
 }
 
@@ -173,6 +180,13 @@ func (db *ProgramStateDB) validate(rec *Record) bool {
 	}
 	// lists
 	for _, m := range rec.deps.lists {
+		if m.modified < m.value.modified {
+			rec.verified = 0
+			return false
+		}
+	}
+	// sets
+	for _, m := range rec.deps.sets {
 		if m.modified < m.value.modified {
 			rec.verified = 0
 			return false

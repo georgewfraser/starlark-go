@@ -67,7 +67,7 @@ func TestListElements(t *testing.T) {
 }
 
 func TestSetElements(t *testing.T) {
-	set := NewSet(3)
+	set := NewSet(&Thread{}, 3)
 	set.Insert(MakeInt(1))
 	set.Insert(MakeInt(2))
 	set.Insert(MakeInt(3))

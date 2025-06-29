@@ -852,7 +852,7 @@ func Binary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			if y, ok := y.(*Set); ok {
 				iter := y.Iterate()
 				defer iter.Done()
-				return x.Difference(iter)
+				return x.Difference(thread, iter)
 			}
 		}
 
@@ -1116,7 +1116,7 @@ func Binary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			if y, ok := y.(*Set); ok {
 				iter := Iterate(y)
 				defer iter.Done()
-				return x.Union(iter)
+				return x.Union(thread, iter)
 			}
 		}
 
@@ -1130,7 +1130,7 @@ func Binary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			if y, ok := y.(*Set); ok {
 				iter := y.Iterate()
 				defer iter.Done()
-				return x.Intersection(iter)
+				return x.Intersection(thread, iter)
 			}
 		}
 
@@ -1144,7 +1144,7 @@ func Binary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 			if y, ok := y.(*Set); ok {
 				iter := y.Iterate()
 				defer iter.Done()
-				return x.SymmetricDifference(iter)
+				return x.SymmetricDifference(thread, iter)
 			}
 		}
 

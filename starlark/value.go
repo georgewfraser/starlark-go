@@ -914,7 +914,6 @@ func (d *Dict) SetKey(k, v Value) error {
 	return d.ht.insert(k, v)
 }
 func (d *Dict) String() string {
-	d.read()
 	return toString(d)
 }
 func (d *Dict) Type() string { return "dict" }
@@ -1224,31 +1223,53 @@ func (it *tupleIterator) Done() {}
 // If you know the exact final number of elements,
 // it is more efficient to call NewSet.
 type Set struct {
-	ht hashtable // values are all None
+	ht       hashtable // values are all None
+	owner    *Thread   // the thread that created this Set
+	modified uint64
 }
 
 // NewSet returns a dictionary with initial space for
 // at least size insertions before rehashing.
-func NewSet(size int) *Set {
+func NewSet(owner *Thread, size int) *Set {
 	set := new(Set)
 	set.ht.init(size)
+	set.owner = owner
+	set.modified = owner.cache.version
 	return set
 }
 
-func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.delete(k); return }
-func (s *Set) Clear() error                           { return s.ht.clear() }
-func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(k); return }
-func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
-func (s *Set) Len() int                               { return int(s.ht.len) }
-func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
-func (s *Set) String() string                         { return toString(s) }
-func (s *Set) Type() string                           { return "set" }
-func (s *Set) Freeze()                                { s.ht.freeze() }
-func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("unhashable type: set") }
-func (s *Set) Truth() Bool                            { return s.Len() > 0 }
+func (s *Set) Delete(k Value) (found bool, err error) {
+	s.write()
+	_, found, err = s.ht.delete(k)
+	return
+}
+func (s *Set) Clear() error                        { s.write(); return s.ht.clear() }
+func (s *Set) Has(k Value) (found bool, err error) { s.read(); _, found, err = s.ht.lookup(k); return }
+func (s *Set) Insert(k Value) error                { s.write(); return s.ht.insert(k, None) }
+func (s *Set) Len() int                            { s.read(); return int(s.ht.len) }
+func (s *Set) Iterate() Iterator                   { s.read(); return s.ht.iterate() }
+func (s *Set) String() string                      { return toString(s) }
+func (s *Set) Type() string                        { return "set" }
+func (s *Set) Freeze()                             { s.write(); s.ht.freeze() }
+func (s *Set) Hash() (uint32, error)               { return 0, fmt.Errorf("unhashable type: set") }
+func (s *Set) Truth() Bool                         { return s.Len() > 0 }
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
+
+func (s *Set) read() {
+	if !s.ht.frozen {
+		s.owner.dependencies.sets = append(s.owner.dependencies.sets, SetVersion{s, s.modified})
+	}
+}
+
+func (s *Set) write() {
+	if !s.ht.frozen {
+		s.owner.cache.version++
+		s.modified = s.owner.cache.version
+		s.owner.dependencies.sets = append(s.owner.dependencies.sets, SetVersion{s, s.modified})
+	}
+}
 
 func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*Set)
@@ -1304,9 +1325,9 @@ func setsEqual(x, y *Set, depth int) (bool, error) {
 	return true, nil
 }
 
-func setFromIterator(iter Iterator) (*Set, error) {
+func setFromIterator(owner *Thread, iter Iterator) (*Set, error) {
 	var x Value
-	set := new(Set)
+	set := NewSet(owner, 0)
 	for iter.Next(&x) {
 		err := set.Insert(x)
 		if err != nil {
@@ -1316,16 +1337,17 @@ func setFromIterator(iter Iterator) (*Set, error) {
 	return set, nil
 }
 
-func (s *Set) clone() *Set {
-	set := new(Set)
+func (s *Set) clone(thread *Thread) *Set {
+	set := NewSet(thread, int(s.ht.len))
 	for e := s.ht.head; e != nil; e = e.next {
 		set.Insert(e.key) // can't fail
 	}
 	return set
 }
 
-func (s *Set) Union(iter Iterator) (Value, error) {
-	set := s.clone()
+func (s *Set) Union(thread *Thread, iter Iterator) (Value, error) {
+	s.read()
+	set := s.clone(thread)
 	var x Value
 	for iter.Next(&x) {
 		if err := set.Insert(x); err != nil {
@@ -1345,8 +1367,9 @@ func (s *Set) InsertAll(iter Iterator) error {
 	return nil
 }
 
-func (s *Set) Difference(other Iterator) (Value, error) {
-	diff := s.clone()
+func (s *Set) Difference(thread *Thread, other Iterator) (Value, error) {
+	s.read()
+	diff := s.clone(thread)
 	var x Value
 	for other.Next(&x) {
 		if _, err := diff.Delete(x); err != nil {
@@ -1378,8 +1401,9 @@ func (s *Set) IsSubset(other Iterator) (bool, error) {
 	}
 }
 
-func (s *Set) Intersection(other Iterator) (Value, error) {
-	intersect := new(Set)
+func (s *Set) Intersection(thread *Thread, other Iterator) (Value, error) {
+	s.read()
+	intersect := NewSet(thread, 0)
 	var x Value
 	for other.Next(&x) {
 		found, err := s.Has(x)
@@ -1396,8 +1420,9 @@ func (s *Set) Intersection(other Iterator) (Value, error) {
 	return intersect, nil
 }
 
-func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
-	diff := s.clone()
+func (s *Set) SymmetricDifference(thread *Thread, other Iterator) (Value, error) {
+	s.read()
+	diff := s.clone(thread)
 	var x Value
 	for other.Next(&x) {
 		found, err := diff.Delete(x)
@@ -1487,6 +1512,7 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 		}
 
 	case *Dict:
+		x.read()
 		out.WriteByte('{')
 		if pathContains(path, x) {
 			out.WriteString("...") // dict contains itself
@@ -1504,6 +1530,7 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 		out.WriteByte('}')
 
 	case *Set:
+		x.read()
 		out.WriteString("set([")
 		for e := x.ht.head; e != nil; e = e.next {
 			if e != x.ht.head {

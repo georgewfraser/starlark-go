@@ -988,12 +988,12 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set
-func set(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var iterable Iterable
 	if err := UnpackPositionalArgs("set", args, kwargs, 0, &iterable); err != nil {
 		return nil, err
 	}
-	set := new(Set)
+	set := NewSet(thread, 0)
 	if iterable != nil {
 		iter := iterable.Iterate()
 		defer iter.Done()
@@ -2230,7 +2230,7 @@ func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·difference.
-func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// TODO: support multiple others: s.difference(*others)
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
@@ -2238,7 +2238,7 @@ func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	}
 	iter := other.Iterate()
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).Difference(iter)
+	diff, err := b.Receiver().(*Set).Difference(thread, iter)
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
@@ -2246,7 +2246,7 @@ func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set_intersection.
-func set_intersection(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_intersection(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	// TODO: support multiple others: s.difference(*others)
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
@@ -2254,7 +2254,7 @@ func set_intersection(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	}
 	iter := other.Iterate()
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).Intersection(iter)
+	diff, err := b.Receiver().(*Set).Intersection(thread, iter)
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
@@ -2346,14 +2346,14 @@ func set_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·symmetric_difference.
-func set_symmetric_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func set_symmetric_difference(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var other Iterable
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
 	iter := other.Iterate()
 	defer iter.Done()
-	diff, err := b.Receiver().(*Set).SymmetricDifference(iter)
+	diff, err := b.Receiver().(*Set).SymmetricDifference(thread, iter)
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
@@ -2361,8 +2361,8 @@ func set_symmetric_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple)
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·union.
-func set_union(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
-	receiverSet := b.Receiver().(*Set).clone()
+func set_union(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+	receiverSet := b.Receiver().(*Set).clone(thread)
 	if err := setUpdate(receiverSet, args, kwargs); err != nil {
 		return nil, nameErr(b, err)
 	}
