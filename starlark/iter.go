@@ -11,7 +11,10 @@ import (
 	"iter"
 )
 
-func (d *Dict) Entries() iter.Seq2[Value, Value] { return d.ht.entries }
+func (d *Dict) Entries() iter.Seq2[Value, Value] {
+	d.read()
+	return d.ht.entries
+}
 
 // Elements returns a go1.23 iterator over the elements of the list.
 //

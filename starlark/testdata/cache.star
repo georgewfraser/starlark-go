@@ -38,7 +38,7 @@ s = sneaky()
 buster = 0
 def counter(inspect_buster):
     if inspect_buster:
-        print(buster)
+        do_nothing = buster
     return s()
 
 assert.eq(counter(False), 1)

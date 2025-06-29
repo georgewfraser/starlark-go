@@ -92,7 +92,7 @@ func TestSetElements(t *testing.T) {
 }
 
 func TestDictEntries(t *testing.T) {
-	dict := NewDict(2)
+	dict := NewDict(&Thread{}, 2)
 	dict.SetKey(String("one"), MakeInt(1))
 	dict.SetKey(String("two"), MakeInt(2))
 	dict.SetKey(String("three"), MakeInt(3))

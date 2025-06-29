@@ -429,7 +429,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 
 		case '{':
 			// object
-			dict := new(starlark.Dict)
+			var values [][2]starlark.Value
 
 			i++ // '{'
 			b = next()
@@ -445,7 +445,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					}
 					i++ // ':'
 					value := parse()
-					dict.SetKey(key, value) // can't fail
+					values = append(values, [2]starlark.Value{key, value})
 					b = next()
 					if b != ',' {
 						if b != '}' {
@@ -457,7 +457,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				}
 			}
 			i++ // '}'
-			return dict
+			return starlark.NewDictFromValues(thread, values)
 
 		default:
 			// number?

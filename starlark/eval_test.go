@@ -140,6 +140,7 @@ func TestExecFile(t *testing.T) {
 		"testdata/builtins.star",
 		"testdata/bytes.star",
 		"testdata/cache.star",
+		"testdata/cache_dict.star",
 		"testdata/cache_list.star",
 		"testdata/control.star",
 		"testdata/dict.star",
@@ -1117,7 +1118,7 @@ func TestDebugFrame(t *testing.T) {
 			if !ok {
 				return nil, fmt.Errorf("env must be called from a Starlark function")
 			}
-			dict := starlark.NewDict(0)
+			dict := starlark.NewDict(&starlark.Thread{}, 0)
 			for i := 0; i < fr.NumLocals(); i++ {
 				bind, val := fr.Local(i)
 				if val == nil {

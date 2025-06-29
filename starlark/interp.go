@@ -55,7 +55,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	stack := space[nlocals:]          // operand stack
 
 	// Digest arguments and set parameters.
-	err := setArgs(locals, fn, args, kwargs)
+	err := setArgs(thread, locals, fn, args, kwargs)
 	if err != nil {
 		return nil, thread.evalError(err)
 	}
@@ -266,6 +266,8 @@ loop:
 					if err = xdict.ht.checkMutable("apply |= to"); err != nil {
 						break loop
 					}
+					xdict.write()
+					ydict.read()
 					xdict.ht.addAll(&ydict.ht) // can't fail
 					z = xdict
 				}
@@ -466,7 +468,7 @@ loop:
 			}
 
 		case compile.MAKEDICT:
-			stack[sp] = new(Dict)
+			stack[sp] = NewDict(thread, 0)
 			sp++
 
 		case compile.SETDICT, compile.SETDICTUNIQ:

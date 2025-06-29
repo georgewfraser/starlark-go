@@ -133,3 +133,15 @@ def try_to_set():
 try_to_set()
 freeze(mutable)
 assert.fails(try_to_set, "cannot assign to element of frozen list")
+
+---
+load("assert.star", "assert", "freeze")
+
+mutable = []
+
+def list_is_true():
+    return bool(mutable)
+
+assert.eq(list_is_true(), False)
+mutable.append(1)
+assert.eq(list_is_true(), True)

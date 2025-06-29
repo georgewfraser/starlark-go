@@ -297,11 +297,11 @@ func chr(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict
-func dict(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if len(args) > 1 {
 		return nil, fmt.Errorf("dict: got %d arguments, want at most 1", len(args))
 	}
-	dict := new(Dict)
+	dict := NewDict(thread, 0)
 	if err := updateDict(dict, args, kwargs); err != nil {
 		return nil, fmt.Errorf("dict: %v", err)
 	}
@@ -1268,6 +1268,7 @@ func dict_popitem(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 		return nil, err
 	}
 	recv := b.Receiver().(*Dict)
+	recv.read()
 	k, ok := recv.ht.first()
 	if !ok {
 		return nil, nameErr(b, "empty dict")

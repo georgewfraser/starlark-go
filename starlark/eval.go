@@ -1109,7 +1109,7 @@ func Binary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 
 		case *Dict: // union
 			if y, ok := y.(*Dict); ok {
-				return x.Union(y), nil
+				return x.Union(thread, y), nil
 			}
 
 		case *Set: // union
@@ -1427,7 +1427,7 @@ func asIndex(v Value, len int, result *int) error {
 
 // setArgs sets the values of the formal parameters of function fn in
 // based on the actual parameter values in args and kwargs.
-func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
+func setArgs(thread *Thread, locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 
 	// This is the general schema of a function:
 	//
@@ -1464,11 +1464,12 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 
 	// nparams is the number of ordinary parameters (sans *args and **kwargs).
 	nparams := fn.NumParams()
-	var kwdict *Dict
+	var kwdict *hashtable // allows us to initialize kwargs without creating dependencies
 	if fn.HasKwargs() {
 		nparams--
-		kwdict = new(Dict)
-		locals[nparams] = kwdict
+		kwentry := NewDict(thread, 0)
+		kwdict = &kwentry.ht
+		locals[nparams] = kwentry
 	}
 	if fn.HasVarargs() {
 		nparams--
@@ -1519,9 +1520,9 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 		if kwdict == nil {
 			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
 		}
-		oldlen := kwdict.Len()
-		kwdict.SetKey(k, v)
-		if kwdict.Len() == oldlen {
+		oldlen := kwdict.len
+		kwdict.insert(k, v)
+		if kwdict.len == oldlen {
 			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
 		}
 	}

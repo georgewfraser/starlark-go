@@ -853,34 +853,82 @@ func (b *Builtin) BindReceiver(recv Value) *Builtin {
 // If you know the exact final number of entries,
 // it is more efficient to call NewDict.
 type Dict struct {
-	ht hashtable
+	ht       hashtable
+	owner    *Thread // the thread that created this Dict.
+	modified uint64
 }
 
 // NewDict returns a set with initial space for
 // at least size insertions before rehashing.
-func NewDict(size int) *Dict {
+func NewDict(owner *Thread, size int) *Dict {
 	dict := new(Dict)
 	dict.ht.init(size)
+	dict.owner = owner
+	dict.modified = owner.cache.version
 	return dict
 }
 
-func (d *Dict) Clear() error                                    { return d.ht.clear() }
-func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(k) }
-func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
-func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
-func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
-func (d *Dict) Len() int                                        { return int(d.ht.len) }
-func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
-func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
-func (d *Dict) String() string                                  { return toString(d) }
-func (d *Dict) Type() string                                    { return "dict" }
-func (d *Dict) Freeze()                                         { d.ht.freeze() }
-func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
-func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
+func NewDictFromValues(owner *Thread, values [][2]Value) *Dict {
+	dict := new(Dict)
+	dict.ht.init(len(values))
+	dict.owner = owner
+	dict.modified = owner.cache.version
+	for _, kv := range values {
+		if err := dict.ht.insert(kv[0], kv[1]); err != nil {
+			panic(fmt.Sprintf("NewDictFromMap: %s", err))
+		}
+	}
+	return dict
+}
 
-func (x *Dict) Union(y *Dict) *Dict {
-	z := new(Dict)
-	z.ht.init(x.Len()) // a lower bound
+func (d *Dict) Clear() error {
+	d.write()
+	return d.ht.clear()
+}
+func (d *Dict) Delete(k Value) (v Value, found bool, err error) {
+	d.write()
+	return d.ht.delete(k)
+}
+func (d *Dict) Get(k Value) (v Value, found bool, err error) {
+	d.read()
+	return d.ht.lookup(k)
+}
+func (d *Dict) Items() []Tuple {
+	d.read()
+	return d.ht.items()
+}
+func (d *Dict) Keys() []Value {
+	d.read()
+	return d.ht.keys()
+}
+func (d *Dict) Len() int {
+	d.read()
+	return int(d.ht.len)
+}
+func (d *Dict) Iterate() Iterator {
+	d.read()
+	return d.ht.iterate()
+}
+func (d *Dict) SetKey(k, v Value) error {
+	d.write()
+	return d.ht.insert(k, v)
+}
+func (d *Dict) String() string {
+	d.read()
+	return toString(d)
+}
+func (d *Dict) Type() string { return "dict" }
+func (d *Dict) Freeze() {
+	d.write()
+	d.ht.freeze()
+}
+func (d *Dict) Truth() Bool           { return d.Len() > 0 }
+func (d *Dict) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: dict") }
+
+func (x *Dict) Union(thread *Thread, y *Dict) *Dict {
+	z := NewDict(thread, x.Len()) // a lower bound
+	x.read()
+	y.read()
 	z.ht.addAll(&x.ht) // can't fail
 	z.ht.addAll(&y.ht) // can't fail
 	return z
@@ -900,6 +948,20 @@ func (x *Dict) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, erro
 		return !ok, err
 	default:
 		return false, fmt.Errorf("%s %s %s not implemented", x.Type(), op, y.Type())
+	}
+}
+
+func (d *Dict) read() {
+	if !d.ht.frozen {
+		d.owner.dependencies.dicts = append(d.owner.dependencies.dicts, DictVersion{d, d.modified})
+	}
+}
+
+func (d *Dict) write() {
+	if !d.ht.frozen {
+		d.owner.cache.version++
+		d.modified = d.owner.cache.version
+		d.owner.dependencies.dicts = append(d.owner.dependencies.dicts, DictVersion{d, d.modified})
 	}
 }
 
@@ -933,7 +995,7 @@ type List struct {
 // NewList returns a list containing the specified elements.
 // Callers should not subsequently modify elems.
 func NewList(owner *Thread, elems []Value) *List {
-	return &List{elems: elems, owner: owner}
+	return &List{elems: elems, owner: owner, modified: owner.cache.version}
 }
 
 func (l *List) Freeze() {
