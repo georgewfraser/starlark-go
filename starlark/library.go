@@ -380,7 +380,7 @@ func fail(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		if s, ok := AsString(v); ok {
 			buf.WriteString(s)
 		} else {
-			writeValue(buf, v, nil)
+			writeValue(NilThreadPlaceholder(), buf, v, nil)
 		}
 	}
 
@@ -811,7 +811,7 @@ func print(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		} else if b, ok := v.(Bytes); ok {
 			buf.WriteString(string(b))
 		} else {
-			writeValue(buf, v, nil)
+			writeValue(NilThreadPlaceholder(), buf, v, nil)
 		}
 	}
 
@@ -891,7 +891,7 @@ func (r rangeValue) Slice(thread *Thread, start, end, step int) Value {
 }
 
 func (r rangeValue) Freeze(thread *Thread) {} // immutable
-func (r rangeValue) String() string {
+func (r rangeValue) String(thread *Thread) string {
 	if r.step != 1 {
 		return fmt.Sprintf("range(%d, %d, %d)", r.start, r.stop, r.step)
 	} else if r.start != 0 {
@@ -961,7 +961,7 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs("repr", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	return String(x.String()), nil
+	return String(x.String(thread)), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#reversed
@@ -1094,7 +1094,7 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		// Invalid encodings are replaced by that of U+FFFD.
 		return String(utf8Transcode(string(x))), nil
 	default:
-		return String(x.String()), nil
+		return String(x.String(thread)), nil
 	}
 }
 
@@ -1522,7 +1522,7 @@ type bytesIterable struct{ bytes Bytes }
 
 var _ Iterable = (*bytesIterable)(nil)
 
-func (bi bytesIterable) String() string                  { return bi.bytes.String() + ".elems()" }
+func (bi bytesIterable) String(thread *Thread) string    { return bi.bytes.String(thread) + ".elems()" }
 func (bi bytesIterable) Type() string                    { return "bytes.elems" }
 func (bi bytesIterable) Freeze(thread *Thread)           {}
 func (bi bytesIterable) Truth() Bool                     { return True }
@@ -1820,10 +1820,10 @@ func string_format(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 			if str, ok := AsString(arg); ok {
 				buf.WriteString(str)
 			} else {
-				writeValue(buf, arg, nil)
+				writeValue(NilThreadPlaceholder(), buf, arg, nil)
 			}
 		case "r":
-			writeValue(buf, arg, nil)
+			writeValue(NilThreadPlaceholder(), buf, arg, nil)
 		default:
 			return nil, fmt.Errorf("format: unknown conversion %q", conv)
 		}
@@ -2465,7 +2465,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 		for _, kv := range kwargs {
 			k := kv[0].(String)
 			if keys[k] {
-				return fmt.Errorf("duplicate keyword arg: %v", k)
+				return fmt.Errorf("duplicate keyword arg: %s", k.String(NilThreadPlaceholder()))
 			}
 			keys[k] = true
 		}

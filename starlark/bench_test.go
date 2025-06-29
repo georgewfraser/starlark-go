@@ -76,12 +76,12 @@ type benchmark struct {
 	b *testing.B
 }
 
-func (benchmark) Freeze(thread *starlark.Thread) {}
-func (benchmark) Truth() starlark.Bool           { return true }
-func (benchmark) Type() string                   { return "benchmark" }
-func (benchmark) String() string                 { return "<benchmark>" }
-func (benchmark) Hash() (uint32, error)          { return 0, fmt.Errorf("unhashable: benchmark") }
-func (benchmark) AttrNames() []string            { return []string{"n", "restart", "start", "stop"} }
+func (benchmark) Freeze(thread *starlark.Thread)        {}
+func (benchmark) Truth() starlark.Bool                  { return true }
+func (benchmark) Type() string                          { return "benchmark" }
+func (benchmark) String(thread *starlark.Thread) string { return "<benchmark>" }
+func (benchmark) Hash() (uint32, error)                 { return 0, fmt.Errorf("unhashable: benchmark") }
+func (benchmark) AttrNames() []string                   { return []string{"n", "restart", "start", "stop"} }
 func (b benchmark) Attr(name string) (starlark.Value, error) {
 	switch name {
 	case "n":

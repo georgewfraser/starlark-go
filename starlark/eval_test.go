@@ -105,7 +105,7 @@ func TestEvalExpr(t *testing.T) {
 		if v, err := starlark.Eval(thread, "<expr>", test.src, nil); err != nil {
 			got = err.Error()
 		} else {
-			got = v.String()
+			got = v.String(thread)
 		}
 		if got != test.want {
 			t.Errorf("eval %s = %s, want %s", test.src, got, test.want)
@@ -198,7 +198,7 @@ func TestExecFile(t *testing.T) {
 type fib struct{}
 
 func (t fib) Freeze(thread *starlark.Thread)                    {}
-func (t fib) String() string                                    { return "fib" }
+func (t fib) String(thread *starlark.Thread) string             { return "fib" }
 func (t fib) Type() string                                      { return "fib" }
 func (t fib) Truth() starlark.Bool                              { return true }
 func (t fib) Hash() (uint32, error)                             { return 0, fmt.Errorf("fib is unhashable") }
@@ -257,10 +257,10 @@ var (
 	_ starlark.HasBinary = (*hasfields)(nil)
 )
 
-func (hf *hasfields) String() string        { return "hasfields" }
-func (hf *hasfields) Type() string          { return "hasfields" }
-func (hf *hasfields) Truth() starlark.Bool  { return true }
-func (hf *hasfields) Hash() (uint32, error) { return 42, nil }
+func (hf *hasfields) String(thread *starlark.Thread) string { return "hasfields" }
+func (hf *hasfields) Type() string                          { return "hasfields" }
+func (hf *hasfields) Truth() starlark.Bool                  { return true }
+func (hf *hasfields) Hash() (uint32, error)                 { return 42, nil }
 
 func (hf *hasfields) Freeze(thread *starlark.Thread) {
 	if !hf.frozen {
@@ -316,12 +316,12 @@ type sneaky struct{ count int }
 
 var _ starlark.Callable = (*sneaky)(nil)
 
-func (s *sneaky) String() string                 { return fmt.Sprintf("sneaky(%d)", s.count) }
-func (s *sneaky) Type() string                   { return "sneaky" }
-func (s *sneaky) Freeze(thread *starlark.Thread) {}
-func (s *sneaky) Truth() starlark.Bool           { return true }
-func (s *sneaky) Hash() (uint32, error)          { return 0, fmt.Errorf("sneaky is unhashable") }
-func (s *sneaky) Name() string                   { return "sneaky" }
+func (s *sneaky) String(thread *starlark.Thread) string { return fmt.Sprintf("sneaky(%d)", s.count) }
+func (s *sneaky) Type() string                          { return "sneaky" }
+func (s *sneaky) Freeze(thread *starlark.Thread)        {}
+func (s *sneaky) Truth() starlark.Bool                  { return true }
+func (s *sneaky) Hash() (uint32, error)                 { return 0, fmt.Errorf("sneaky is unhashable") }
+func (s *sneaky) Name() string                          { return "sneaky" }
 func (s *sneaky) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args)+len(kwargs) > 0 {
 		return nil, fmt.Errorf("sneaky: unexpected arguments")
@@ -478,7 +478,7 @@ def j(a, b=42, *args, c, d=123, e, **kwargs):
 		if v, err := starlark.Eval(thread, "<expr>", test.src, globals); err != nil {
 			got = err.Error()
 		} else {
-			got = v.String()
+			got = v.String(thread)
 		}
 		if got != test.want {
 			t.Errorf("eval %s = %s, want %s", test.src, got, test.want)
@@ -912,11 +912,11 @@ g(z=7)
 
 type badType string
 
-func (b *badType) String() string                 { return "badType" }
-func (b *badType) Type() string                   { return "badType:" + string(*b) } // panics if b==nil
-func (b *badType) Truth() starlark.Bool           { return true }
-func (b *badType) Hash() (uint32, error)          { return 0, nil }
-func (b *badType) Freeze(thread *starlark.Thread) {}
+func (b *badType) String(thread *starlark.Thread) string { return "badType" }
+func (b *badType) Type() string                          { return "badType:" + string(*b) } // panics if b==nil
+func (b *badType) Truth() starlark.Bool                  { return true }
+func (b *badType) Hash() (uint32, error)                 { return 0, nil }
+func (b *badType) Freeze(thread *starlark.Thread)        {}
 
 var _ starlark.Value = new(badType)
 
@@ -987,7 +987,7 @@ func TestCancel(t *testing.T) {
 		thread := new(starlark.Thread)
 		predeclared := starlark.StringDict{
 			"stopit": starlark.NewBuiltin("stopit", func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-				thread.Cancel(fmt.Sprint(args[0]))
+				thread.Cancel(args[0].String(thread))
 				return starlark.None, nil
 			}),
 		}
@@ -1151,7 +1151,7 @@ f(1)
 	if err != nil {
 		t.Fatalf("ExecFile returned error %q, expected panic", err)
 	}
-	got := m["e"].(*starlark.List).Index(starlark.NilThreadPlaceholder(), 0).String()
+	got := m["e"].(*starlark.List).Index(starlark.NilThreadPlaceholder(), 0).String(thread)
 	want := `{"q": 2, "inner": 4, "outer": 3}`
 	if got != want {
 		t.Errorf("env() returned %s, want %s", got, want)

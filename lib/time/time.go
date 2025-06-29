@@ -189,7 +189,7 @@ func (d *Duration) Unpack(v starlark.Value) error {
 }
 
 // String implements the Stringer interface.
-func (d Duration) String() string { return time.Duration(d).String() }
+func (d Duration) String(thread *starlark.Thread) string { return time.Duration(d).String() }
 
 // Type returns a short string describing the value's type.
 func (d Duration) Type() string { return "time.duration" }
@@ -363,7 +363,9 @@ func newTime(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, 
 // String returns the time formatted using the format string
 //
 //	"2006-01-02 15:04:05.999999999 -0700 MST".
-func (t Time) String() string { return time.Time(t).Format("2006-01-02 15:04:05.999999999 -0700 MST") }
+func (t Time) String(thread *starlark.Thread) string {
+	return time.Time(t).Format("2006-01-02 15:04:05.999999999 -0700 MST")
+}
 
 // Type returns "time.time".
 func (t Time) Type() string { return "time.time" }

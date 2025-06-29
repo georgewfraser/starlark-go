@@ -22,7 +22,7 @@ func (m *Module) Attr(name string) (starlark.Value, error) { return m.Members[na
 func (m *Module) AttrNames() []string                      { return m.Members.Keys() }
 func (m *Module) Freeze(thread *starlark.Thread)           { m.Members.Freeze(thread) }
 func (m *Module) Hash() (uint32, error)                    { return 0, fmt.Errorf("unhashable: %s", m.Type()) }
-func (m *Module) String() string                           { return fmt.Sprintf("<module %q>", m.Name) }
+func (m *Module) String(thread *starlark.Thread) string    { return fmt.Sprintf("<module %q>", m.Name) }
 func (m *Module) Truth() starlark.Bool                     { return true }
 func (m *Module) Type() string                             { return "module" }
 

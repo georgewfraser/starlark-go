@@ -174,7 +174,7 @@ func (d StringDict) String() string {
 		buf.WriteString(sep)
 		buf.WriteString(name)
 		buf.WriteString(": ")
-		writeValue(buf, d[name], nil)
+		writeValue(NilThreadPlaceholder(), buf, d[name], nil)
 		sep = ", "
 	}
 	buf.WriteByte('}')
@@ -696,7 +696,7 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 			return nil, err
 		}
 		if !found {
-			return nil, fmt.Errorf("key %v not in %s", y, x.Type())
+			return nil, fmt.Errorf("key %s not in %s", y.String(NilThreadPlaceholder()), x.Type())
 		}
 		return z, nil
 
@@ -1513,18 +1513,18 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 		k, v := pair[0].(String), pair[1]
 		if i := findParam(paramIdents, string(k)); i >= 0 {
 			if locals[i] != nil {
-				return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
+				return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k.String(NilThreadPlaceholder()))
 			}
 			locals[i] = v
 			continue
 		}
 		if kwdict == nil {
-			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
+			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k.String(NilThreadPlaceholder()))
 		}
 		oldlen := kwdict.Len(NilThreadPlaceholder())
 		kwdict.SetKey(NilThreadPlaceholder(), k, v)
 		if kwdict.Len(NilThreadPlaceholder()) == oldlen {
-			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
+			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k.String(NilThreadPlaceholder()))
 		}
 	}
 
@@ -1637,7 +1637,7 @@ func interpolate(format string, x Value) (Value, error) {
 			if str, ok := AsString(arg); ok && c == 's' {
 				buf.WriteString(str)
 			} else {
-				writeValue(buf, arg, nil)
+				writeValue(NilThreadPlaceholder(), buf, arg, nil)
 			}
 		case 'd', 'i', 'o', 'x', 'X':
 			i, err := NumberToInt(arg)

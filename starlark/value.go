@@ -87,7 +87,8 @@ func NilThreadPlaceholder() *Thread { return nil }
 type Value interface {
 	// String returns the string representation of the value.
 	// Starlark string values are quoted as if by Python's repr.
-	String() string
+	// The thread parameter may be nil when no thread is available.
+	String(thread *Thread) string
 
 	// Type returns a short string describing the value's type.
 	Type() string
@@ -389,11 +390,11 @@ type NoneType byte
 
 const None = NoneType(0)
 
-func (NoneType) String() string        { return "None" }
-func (NoneType) Type() string          { return "NoneType" }
-func (NoneType) Freeze(thread *Thread) {} // immutable
-func (NoneType) Truth() Bool           { return False }
-func (NoneType) Hash() (uint32, error) { return 0, nil }
+func (NoneType) String(thread *Thread) string { return "None" }
+func (NoneType) Type() string                 { return "NoneType" }
+func (NoneType) Freeze(thread *Thread)        {} // immutable
+func (NoneType) Truth() Bool                  { return False }
+func (NoneType) Hash() (uint32, error)        { return 0, nil }
 
 // Bool is the type of a Starlark bool.
 type Bool bool
@@ -403,7 +404,7 @@ const (
 	True  Bool = true
 )
 
-func (b Bool) String() string {
+func (b Bool) String(thread *Thread) string {
 	if b {
 		return "True"
 	} else {
@@ -422,7 +423,7 @@ func (x Bool) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth i
 // Float is the type of a Starlark float.
 type Float float64
 
-func (f Float) String() string {
+func (f Float) String(thread *Thread) string {
 	var buf strings.Builder
 	f.format(&buf, 'g')
 	return buf.String()
@@ -563,7 +564,7 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 // of a Starlark string as a Go string.
 type String string
 
-func (s String) String() string                    { return syntax.Quote(string(s), false) }
+func (s String) String(thread *Thread) string      { return syntax.Quote(string(s), false) }
 func (s String) GoString() string                  { return string(s) }
 func (s String) Type() string                      { return "string" }
 func (s String) Freeze(thread *Thread)             {}
@@ -608,11 +609,11 @@ var (
 	_ Indexable = (*stringElems)(nil)
 )
 
-func (si stringElems) String() string {
+func (si stringElems) String(thread *Thread) string {
 	if si.ords {
-		return si.s.String() + ".elem_ords()"
+		return si.s.String(thread) + ".elem_ords()"
 	} else {
-		return si.s.String() + ".elems()"
+		return si.s.String(thread) + ".elems()"
 	}
 }
 func (si stringElems) Type() string                    { return "string.elems" }
@@ -657,11 +658,11 @@ type stringCodepoints struct {
 
 var _ Iterable = (*stringCodepoints)(nil)
 
-func (si stringCodepoints) String() string {
+func (si stringCodepoints) String(thread *Thread) string {
 	if si.ords {
-		return si.s.String() + ".codepoint_ords()"
+		return si.s.String(thread) + ".codepoint_ords()"
 	} else {
-		return si.s.String() + ".codepoints()"
+		return si.s.String(thread) + ".codepoints()"
 	}
 }
 func (si stringCodepoints) Type() string                    { return "string.codepoints" }
@@ -727,13 +728,13 @@ func (m *module) makeGlobalDict() StringDict {
 	return r
 }
 
-func (fn *Function) Name() string          { return fn.funcode.Name } // "lambda" for anonymous functions
-func (fn *Function) Doc() string           { return fn.funcode.Doc }
-func (fn *Function) Hash() (uint32, error) { return hashString(fn.funcode.Name), nil }
-func (fn *Function) Freeze(thread *Thread) { fn.defaults.Freeze(thread); fn.freevars.Freeze(thread) }
-func (fn *Function) String() string        { return toString(fn) }
-func (fn *Function) Type() string          { return "function" }
-func (fn *Function) Truth() Bool           { return true }
+func (fn *Function) Name() string                 { return fn.funcode.Name } // "lambda" for anonymous functions
+func (fn *Function) Doc() string                  { return fn.funcode.Doc }
+func (fn *Function) Hash() (uint32, error)        { return hashString(fn.funcode.Name), nil }
+func (fn *Function) Freeze(thread *Thread)        { fn.defaults.Freeze(thread); fn.freevars.Freeze(thread) }
+func (fn *Function) String(thread *Thread) string { return toString(thread, fn) }
+func (fn *Function) Type() string                 { return "function" }
+func (fn *Function) Truth() Bool                  { return true }
 
 // Globals returns a new, unfrozen StringDict containing all global
 // variables so far defined in the function's module.
@@ -815,9 +816,9 @@ func (b *Builtin) Hash() (uint32, error) {
 	}
 	return h, nil
 }
-func (b *Builtin) Receiver() Value { return b.recv }
-func (b *Builtin) String() string  { return toString(b) }
-func (b *Builtin) Type() string    { return "builtin_function_or_method" }
+func (b *Builtin) Receiver() Value              { return b.recv }
+func (b *Builtin) String(thread *Thread) string { return toString(thread, b) }
+func (b *Builtin) Type() string                 { return "builtin_function_or_method" }
 func (b *Builtin) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Value, error) {
 	if b.effects {
 		thread.dependencies.effects = true
@@ -878,7 +879,7 @@ func (d *Dict) Keys() []Value                           { return d.ht.keys() }
 func (d *Dict) Len(thread *Thread) int                  { return int(d.ht.len) }
 func (d *Dict) Iterate(thread *Thread) Iterator         { return d.ht.iterate() }
 func (d *Dict) SetKey(thread *Thread, k, v Value) error { return d.ht.insert(k, v) }
-func (d *Dict) String() string                          { return toString(d) }
+func (d *Dict) String(thread *Thread) string            { return toString(thread, d) }
 func (d *Dict) Type() string                            { return "dict" }
 func (d *Dict) Freeze(thread *Thread)                   { d.ht.freeze(thread) }
 func (d *Dict) Truth() Bool                             { return d.Len(NilThreadPlaceholder()) > 0 }
@@ -960,7 +961,7 @@ func (l *List) checkMutable(verb string) error {
 	return nil
 }
 
-func (l *List) String() string                    { return toString(l) }
+func (l *List) String(thread *Thread) string      { return toString(thread, l) }
 func (l *List) Type() string                      { return "list" }
 func (l *List) Hash() (uint32, error)             { return 0, fmt.Errorf("unhashable type: list") }
 func (l *List) Truth() Bool                       { return l.Len(NilThreadPlaceholder()) > 0 }
@@ -1099,9 +1100,9 @@ func (t Tuple) Freeze(thread *Thread) {
 		elem.Freeze(thread)
 	}
 }
-func (t Tuple) String() string { return toString(t) }
-func (t Tuple) Type() string   { return "tuple" }
-func (t Tuple) Truth() Bool    { return len(t) > 0 }
+func (t Tuple) String(thread *Thread) string { return toString(thread, t) }
+func (t Tuple) Type() string                 { return "tuple" }
+func (t Tuple) Truth() Bool                  { return len(t) > 0 }
 
 func (x Tuple) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(Tuple)
@@ -1157,7 +1158,7 @@ func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.loo
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
 func (s *Set) Len(thread *Thread) int                 { return int(s.ht.len) }
 func (s *Set) Iterate(thread *Thread) Iterator        { return s.ht.iterate() }
-func (s *Set) String() string                         { return toString(s) }
+func (s *Set) String(thread *Thread) string           { return toString(thread, s) }
 func (s *Set) Type() string                           { return "set" }
 func (s *Set) Freeze(thread *Thread)                  { s.ht.freeze(thread) }
 func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("unhashable type: set") }
@@ -1329,9 +1330,9 @@ func (s *Set) SymmetricDifference(other Iterator) (Value, error) {
 
 // toString returns the string form of value v.
 // It may be more efficient than v.String() for larger values.
-func toString(v Value) string {
+func toString(thread *Thread, v Value) string {
 	buf := new(strings.Builder)
-	writeValue(buf, v, nil)
+	writeValue(thread, buf, v, nil)
 	return buf.String()
 }
 
@@ -1342,7 +1343,7 @@ func toString(v Value) string {
 // (These are the only potentially cyclic structures.)
 // Callers should generally pass nil for path.
 // It is safe to re-use the same path slice for multiple calls.
-func writeValue(out *strings.Builder, x Value, path []Value) {
+func writeValue(thread *Thread, out *strings.Builder, x Value, path []Value) {
 	switch x := x.(type) {
 	case nil:
 		out.WriteString("<nil>") // indicates a bug
@@ -1352,7 +1353,7 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 		out.WriteString("None")
 
 	case Int:
-		out.WriteString(x.String())
+		out.WriteString(x.String(thread))
 
 	case Bool:
 		if x {
@@ -1373,7 +1374,7 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 				if i > 0 {
 					out.WriteString(", ")
 				}
-				writeValue(out, elem, append(path, x))
+				writeValue(thread, out, elem, append(path, x))
 			}
 		}
 		out.WriteByte(']')
@@ -1384,7 +1385,7 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 			if i > 0 {
 				out.WriteString(", ")
 			}
-			writeValue(out, elem, path)
+			writeValue(thread, out, elem, path)
 		}
 		if len(x) == 1 {
 			out.WriteByte(',')
@@ -1410,9 +1411,9 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 			for e := x.ht.head; e != nil; e = e.next {
 				k, v := e.key, e.value
 				out.WriteString(sep)
-				writeValue(out, k, path)
+				writeValue(thread, out, k, path)
 				out.WriteString(": ")
-				writeValue(out, v, append(path, x)) // cycle check
+				writeValue(thread, out, v, append(path, x)) // cycle check
 				sep = ", "
 			}
 		}
@@ -1424,12 +1425,12 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 			if e != x.ht.head {
 				out.WriteString(", ")
 			}
-			writeValue(out, e.key, path)
+			writeValue(thread, out, e.key, path)
 		}
 		out.WriteString("])")
 
 	default:
-		out.WriteString(x.String())
+		out.WriteString(x.String(thread))
 	}
 }
 
@@ -1634,7 +1635,7 @@ var (
 	_ Indexable  = Bytes("")
 )
 
-func (b Bytes) String() string                    { return syntax.Quote(string(b), true) }
+func (b Bytes) String(thread *Thread) string      { return syntax.Quote(string(b), true) }
 func (b Bytes) Type() string                      { return "bytes" }
 func (b Bytes) Freeze(thread *Thread)             {}
 func (b Bytes) Truth() Bool                       { return len(b) > 0 }

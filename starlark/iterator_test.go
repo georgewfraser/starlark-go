@@ -98,13 +98,13 @@ func TestDictEntries(t *testing.T) {
 
 	var got []string
 	for k, v := range dict.Entries() {
-		got = append(got, fmt.Sprintf("%v %v", k, v))
+		got = append(got, fmt.Sprintf("%s %s", k.String(NilThreadPlaceholder()), v.String(NilThreadPlaceholder())))
 		if len(got) == 2 {
 			break // skip 3
 		}
 	}
 	for k, v := range Entries(dict) {
-		got = append(got, fmt.Sprintf("%v %v", k, v))
+		got = append(got, fmt.Sprintf("%s %s", k.String(NilThreadPlaceholder()), v.String(NilThreadPlaceholder())))
 		if len(got) == 4 {
 			break // skip 3
 		}
