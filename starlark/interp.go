@@ -734,7 +734,7 @@ type mandatory struct{}
 
 func (mandatory) String() string        { return "mandatory" }
 func (mandatory) Type() string          { return "mandatory" }
-func (mandatory) Freeze()               {} // immutable
+func (mandatory) Freeze(thread *Thread) {}
 func (mandatory) Truth() Bool           { return False }
 func (mandatory) Hash() (uint32, error) { return 0, nil }
 
@@ -748,9 +748,9 @@ type cell struct{ v Value }
 
 func (c *cell) String() string { return "cell" }
 func (c *cell) Type() string   { return "cell" }
-func (c *cell) Freeze() {
+func (c *cell) Freeze(thread *Thread) {
 	if c.v != nil {
-		c.v.Freeze()
+		c.v.Freeze(thread)
 	}
 }
 func (c *cell) Truth() Bool           { panic("unreachable") }
