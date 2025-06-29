@@ -54,12 +54,12 @@ type symbol struct{ name string }
 
 var _ starlark.Callable = (*symbol)(nil)
 
-func (sym *symbol) Name() string                   { return sym.name }
-func (sym *symbol) String() string                 { return sym.name }
-func (sym *symbol) Type() string                   { return "symbol" }
-func (sym *symbol) Freeze(thread *starlark.Thread) {} // immutable
-func (sym *symbol) Truth() starlark.Bool           { return starlark.True }
-func (sym *symbol) Hash() (uint32, error)          { return 0, fmt.Errorf("unhashable: %s", sym.Type()) }
+func (sym *symbol) Name() string                          { return sym.name }
+func (sym *symbol) String(thread *starlark.Thread) string { return sym.name }
+func (sym *symbol) Type() string                          { return "symbol" }
+func (sym *symbol) Freeze(thread *starlark.Thread)        {} // immutable
+func (sym *symbol) Truth() starlark.Bool                  { return starlark.True }
+func (sym *symbol) Hash() (uint32, error)                 { return 0, fmt.Errorf("unhashable: %s", sym.Type()) }
 
 func (sym *symbol) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args) > 0 {

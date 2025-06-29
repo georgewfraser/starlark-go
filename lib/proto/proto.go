@@ -449,12 +449,12 @@ func setField(msg protoreflect.Message, fdesc protoreflect.FieldDescriptor, valu
 			// below.
 			v, _, err := mapping.Get(starlark.NilThreadPlaceholder(), k)
 			if err != nil {
-				return fmt.Errorf("in map field %s, at key %s: %w", fdesc.Name(), k.String(), err)
+				return fmt.Errorf("in map field %s, at key %s: %w", fdesc.Name(), k.String(starlark.NilThreadPlaceholder()), err)
 			}
 
 			vproto, err := toProto(fdesc.MapValue(), v)
 			if err != nil {
-				return fmt.Errorf("in map field %s, at key %s: %w", fdesc.Name(), k.String(), err)
+				return fmt.Errorf("in map field %s, at key %s: %w", fdesc.Name(), k.String(starlark.NilThreadPlaceholder()), err)
 			}
 
 			mutMap.Set(kproto.MapKey(), vproto)
@@ -718,7 +718,7 @@ func unmarshalData(desc protoreflect.MessageDescriptor, data []byte, binary bool
 	return m, nil
 }
 
-func (m *Message) String() string {
+func (m *Message) String(thread *starlark.Thread) string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(string(m.desc().FullName()))
 	buf.WriteByte('(')
@@ -1020,7 +1020,7 @@ func (rf *RepeatedField) Iterate(thread *starlark.Thread) starlark.Iterator {
 	return &repeatedFieldIterator{rf, 0}
 }
 func (rf *RepeatedField) Len(thread *starlark.Thread) int { return rf.list.Len() }
-func (rf *RepeatedField) String() string {
+func (rf *RepeatedField) String(thread *starlark.Thread) string {
 	// We use list [...] notation even though it not exactly a list.
 	buf := new(bytes.Buffer)
 	buf.WriteByte('[')
@@ -1192,7 +1192,7 @@ func (mf *MapField) Items(thread *starlark.Thread) []starlark.Tuple {
 
 func (mf *MapField) Len(thread *starlark.Thread) int { return mf.mp.Len() }
 
-func (mf *MapField) String() string {
+func (mf *MapField) String(thread *starlark.Thread) string {
 	// We want to use {k1: v1, k2: v2} notation, like a dict.
 	buf := new(strings.Builder)
 	buf.WriteByte('{')
@@ -1201,9 +1201,9 @@ func (mf *MapField) String() string {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(kv[0].String())
+		buf.WriteString(kv[0].String(thread))
 		buf.WriteString(": ")
-		buf.WriteString(kv[1].String())
+		buf.WriteString(kv[1].String(thread))
 	}
 
 	buf.WriteByte('}')
@@ -1239,7 +1239,7 @@ func writeString(buf *bytes.Buffer, fdesc protoreflect.FieldDescriptor, v protor
 	// TODO(adonovan): skip message type when printing submessages? {...}?
 	var frozen bool // ignored
 	x := toStarlark(fdesc, v, &frozen)
-	buf.WriteString(x.String())
+	buf.WriteString(x.String(starlark.NilThreadPlaceholder()))
 }
 
 // -------- descriptor values --------
@@ -1257,11 +1257,11 @@ type FileDescriptor struct {
 
 var _ starlark.HasAttrs = FileDescriptor{}
 
-func (f FileDescriptor) String() string                 { return string(f.Desc.Path()) }
-func (f FileDescriptor) Type() string                   { return "proto.FileDescriptor" }
-func (f FileDescriptor) Truth() starlark.Bool           { return true }
-func (f FileDescriptor) Freeze(thread *starlark.Thread) {} // immutable
-func (f FileDescriptor) Hash() (h uint32, err error)    { return starlark.String(f.Desc.Path()).Hash() }
+func (f FileDescriptor) String(thread *starlark.Thread) string { return string(f.Desc.Path()) }
+func (f FileDescriptor) Type() string                          { return "proto.FileDescriptor" }
+func (f FileDescriptor) Truth() starlark.Bool                  { return true }
+func (f FileDescriptor) Freeze(thread *starlark.Thread)        {} // immutable
+func (f FileDescriptor) Hash() (h uint32, err error)           { return starlark.String(f.Desc.Path()).Hash() }
 func (f FileDescriptor) Attr(name string) (starlark.Value, error) {
 	if desc := f.Desc.Messages().ByName(protoreflect.Name(name)); desc != nil {
 		return MessageDescriptor{Desc: desc}, nil
@@ -1311,10 +1311,10 @@ var (
 	_ starlark.HasAttrs = MessageDescriptor{}
 )
 
-func (d MessageDescriptor) String() string                 { return string(d.Desc.FullName()) }
-func (d MessageDescriptor) Type() string                   { return "proto.MessageDescriptor" }
-func (d MessageDescriptor) Truth() starlark.Bool           { return true }
-func (d MessageDescriptor) Freeze(thread *starlark.Thread) {} // immutable
+func (d MessageDescriptor) String(thread *starlark.Thread) string { return string(d.Desc.FullName()) }
+func (d MessageDescriptor) Type() string                          { return "proto.MessageDescriptor" }
+func (d MessageDescriptor) Truth() starlark.Bool                  { return true }
+func (d MessageDescriptor) Freeze(thread *starlark.Thread)        {} // immutable
 func (d MessageDescriptor) Hash() (h uint32, err error) {
 	return starlark.String(d.Desc.FullName()).Hash()
 }
@@ -1367,10 +1367,10 @@ var (
 	_ starlark.HasAttrs = FieldDescriptor{}
 )
 
-func (d FieldDescriptor) String() string                 { return string(d.Desc.FullName()) }
-func (d FieldDescriptor) Type() string                   { return "proto.FieldDescriptor" }
-func (d FieldDescriptor) Truth() starlark.Bool           { return true }
-func (d FieldDescriptor) Freeze(thread *starlark.Thread) {} // immutable
+func (d FieldDescriptor) String(thread *starlark.Thread) string { return string(d.Desc.FullName()) }
+func (d FieldDescriptor) Type() string                          { return "proto.FieldDescriptor" }
+func (d FieldDescriptor) Truth() starlark.Bool                  { return true }
+func (d FieldDescriptor) Freeze(thread *starlark.Thread)        {} // immutable
 func (d FieldDescriptor) Hash() (h uint32, err error) {
 	return starlark.String(d.Desc.FullName()).Hash()
 }
@@ -1407,11 +1407,11 @@ var (
 	_ starlark.Callable = EnumDescriptor{}
 )
 
-func (e EnumDescriptor) String() string                 { return string(e.Desc.FullName()) }
-func (e EnumDescriptor) Type() string                   { return "proto.EnumDescriptor" }
-func (e EnumDescriptor) Truth() starlark.Bool           { return true }
-func (e EnumDescriptor) Freeze(thread *starlark.Thread) {}                // immutable
-func (e EnumDescriptor) Hash() (h uint32, err error)    { return 0, nil } // TODO(adonovan): number?
+func (e EnumDescriptor) String(thread *starlark.Thread) string { return string(e.Desc.FullName()) }
+func (e EnumDescriptor) Type() string                          { return "proto.EnumDescriptor" }
+func (e EnumDescriptor) Truth() starlark.Bool                  { return true }
+func (e EnumDescriptor) Freeze(thread *starlark.Thread)        {}                // immutable
+func (e EnumDescriptor) Hash() (h uint32, err error)           { return 0, nil } // TODO(adonovan): number?
 func (e EnumDescriptor) Attr(name string) (starlark.Value, error) {
 	if v := e.Desc.Values().ByName(protoreflect.Name(name)); v != nil {
 		return EnumValueDescriptor{v}, nil
@@ -1497,7 +1497,7 @@ var (
 	_ starlark.Comparable = EnumValueDescriptor{}
 )
 
-func (e EnumValueDescriptor) String() string {
+func (e EnumValueDescriptor) String(thread *starlark.Thread) string {
 	enum := e.Desc.Parent()
 	return string(enum.Name() + "." + e.Desc.Name()) // "Enum.EnumValue"
 }
