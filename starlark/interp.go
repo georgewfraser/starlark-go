@@ -435,12 +435,6 @@ loop:
 			if err != nil {
 				break loop
 			}
-			switch x := x.(type) {
-			case *List:
-				cache.version++
-				x.modified = cache.version
-				thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{value: x, modified: x.modified})
-			}
 
 		case compile.INDEX:
 			y := stack[sp-1]
@@ -453,10 +447,6 @@ loop:
 			}
 			stack[sp] = z
 			sp++
-			switch x := x.(type) {
-			case *List:
-				thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{value: x, modified: x.modified})
-			}
 
 		case compile.ATTR:
 			x := stack[sp-1]
@@ -516,10 +506,6 @@ loop:
 			}
 			stack[sp] = res
 			sp++
-			switch x := x.(type) {
-			case *List:
-				thread.dependencies.lists = append(thread.dependencies.lists, ListVersion{value: x, modified: x.modified})
-			}
 
 		case compile.UNPACK:
 			n := int(arg)
