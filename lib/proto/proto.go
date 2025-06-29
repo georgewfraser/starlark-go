@@ -1090,7 +1090,7 @@ func (mf *MapField) checkKeyType() error {
 	}
 }
 
-func (mf *MapField) SetKey(k, v starlark.Value) error {
+func (mf *MapField) SetKey(thread *starlark.Thread, k, v starlark.Value) error {
 	if err := mf.checkKeyType(); err != nil {
 		return err
 	}

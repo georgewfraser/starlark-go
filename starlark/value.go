@@ -307,9 +307,10 @@ type IterableMapping interface {
 var _ IterableMapping = (*Dict)(nil)
 
 // A HasSetKey supports map update using x[k]=v syntax, like a dictionary.
+// The thread parameter may be nil when no thread is available.
 type HasSetKey interface {
 	Mapping
-	SetKey(k, v Value) error
+	SetKey(thread *Thread, k, v Value) error
 }
 
 var _ HasSetKey = (*Dict)(nil)
@@ -874,7 +875,7 @@ func (d *Dict) Items() []Tuple                                  { return d.ht.it
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
-func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
+func (d *Dict) SetKey(thread *Thread, k, v Value) error         { return d.ht.insert(k, v) }
 func (d *Dict) String() string                                  { return toString(d) }
 func (d *Dict) Type() string                                    { return "dict" }
 func (d *Dict) Freeze()                                         { d.ht.freeze() }

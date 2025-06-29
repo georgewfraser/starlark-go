@@ -1123,11 +1123,11 @@ func TestDebugFrame(t *testing.T) {
 				if val == nil {
 					continue
 				}
-				dict.SetKey(starlark.String(bind.Name), val) // ignore error
+				dict.SetKey(starlark.NilThreadPlaceholder(), starlark.String(bind.Name), val) // ignore error
 			}
 			for i := 0; i < fn.NumFreeVars(); i++ {
 				bind, val := fn.FreeVar(i)
-				dict.SetKey(starlark.String(bind.Name), val) // ignore error
+				dict.SetKey(starlark.NilThreadPlaceholder(), starlark.String(bind.Name), val) // ignore error
 			}
 			dict.Freeze()
 			return dict, nil

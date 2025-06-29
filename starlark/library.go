@@ -1290,7 +1290,7 @@ func dict_setdefault(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
-	} else if err := dict.SetKey(key, dflt); err != nil {
+	} else if err := dict.SetKey(NilThreadPlaceholder(), key, dflt); err != nil {
 		return nil, nameErr(b, err)
 	} else {
 		return dflt, nil
@@ -2416,7 +2416,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 		case IterableMapping:
 			// Iterate over dict's key/value pairs, not just keys.
 			for _, item := range updates.Items() {
-				if err := dict.SetKey(item[0], item[1]); err != nil {
+				if err := dict.SetKey(NilThreadPlaceholder(), item[0], item[1]); err != nil {
 					return err // dict is frozen
 				}
 			}
@@ -2444,7 +2444,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 				var k, v Value
 				iter2.Next(&k)
 				iter2.Next(&v)
-				if err := dict.SetKey(k, v); err != nil {
+				if err := dict.SetKey(NilThreadPlaceholder(), k, v); err != nil {
 					return err
 				}
 			}
@@ -2454,7 +2454,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 	// Then add the kwargs.
 	before := dict.Len()
 	for _, pair := range kwargs {
-		if err := dict.SetKey(pair[0], pair[1]); err != nil {
+		if err := dict.SetKey(NilThreadPlaceholder(), pair[0], pair[1]); err != nil {
 			return err // dict is frozen
 		}
 	}

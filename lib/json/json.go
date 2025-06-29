@@ -445,7 +445,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 					}
 					i++ // ':'
 					value := parse()
-					dict.SetKey(key, value) // can't fail
+					dict.SetKey(starlark.NilThreadPlaceholder(), key, value) // can't fail
 					b = next()
 					if b != ',' {
 						if b != '}' {
