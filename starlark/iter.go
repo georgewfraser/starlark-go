@@ -71,7 +71,7 @@ func Elements(iterable Iterable) iter.Seq[Value] {
 		return iterable.Elements()
 	}
 
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	return func(yield func(Value) bool) {
 		defer iter.Done()
 		var x Value
@@ -100,12 +100,12 @@ func Entries(mapping IterableMapping) iter.Seq2[Value, Value] {
 		return mapping.Entries()
 	}
 
-	iter := mapping.Iterate()
+	iter := mapping.Iterate(NilThreadPlaceholder())
 	return func(yield func(k, v Value) bool) {
 		defer iter.Done()
 		var k Value
 		for iter.Next(&k) {
-			v, found, err := mapping.Get(k)
+			v, found, err := mapping.Get(NilThreadPlaceholder(), k)
 			if err != nil || !found {
 				panic(fmt.Sprintf("Iterate and Get are inconsistent (mapping=%v, key=%v)",
 					mapping.Type(), k.Type()))

@@ -197,12 +197,12 @@ func TestExecFile(t *testing.T) {
 // A fib is an iterable value representing the infinite Fibonacci sequence.
 type fib struct{}
 
-func (t fib) Freeze()                    {}
-func (t fib) String() string             { return "fib" }
-func (t fib) Type() string               { return "fib" }
-func (t fib) Truth() starlark.Bool       { return true }
-func (t fib) Hash() (uint32, error)      { return 0, fmt.Errorf("fib is unhashable") }
-func (t fib) Iterate() starlark.Iterator { return &fibIterator{0, 1} }
+func (t fib) Freeze()                                           {}
+func (t fib) String() string                                    { return "fib" }
+func (t fib) Type() string                                      { return "fib" }
+func (t fib) Truth() starlark.Bool                              { return true }
+func (t fib) Hash() (uint32, error)                             { return 0, fmt.Errorf("fib is unhashable") }
+func (t fib) Iterate(thread *starlark.Thread) starlark.Iterator { return &fibIterator{0, 1} }
 
 type fibIterator struct{ x, y int }
 
@@ -1123,11 +1123,11 @@ func TestDebugFrame(t *testing.T) {
 				if val == nil {
 					continue
 				}
-				dict.SetKey(starlark.String(bind.Name), val) // ignore error
+				dict.SetKey(starlark.NilThreadPlaceholder(), starlark.String(bind.Name), val) // ignore error
 			}
 			for i := 0; i < fn.NumFreeVars(); i++ {
 				bind, val := fn.FreeVar(i)
-				dict.SetKey(starlark.String(bind.Name), val) // ignore error
+				dict.SetKey(starlark.NilThreadPlaceholder(), starlark.String(bind.Name), val) // ignore error
 			}
 			dict.Freeze()
 			return dict, nil
