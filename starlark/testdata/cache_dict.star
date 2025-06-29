@@ -189,4 +189,17 @@ assert.eq(mutable_len_with_union(), 1)
 mutable ["b"] = 2
 assert.eq(mutable_len_with_union(), 2)
 
-# TODO write positive cases where cache does hit
+---
+load("assert.star", "assert")
+
+s = sneaky()
+mutable = {"a": 1}
+
+def ensure_a():
+    mutable.setdefault("a", 1)
+    return s()
+
+assert.eq(ensure_a(), 1)
+assert.eq(ensure_a(), 1)  # cache holds because setdefault made no change
+mutable["b"] = 2
+assert.eq(ensure_a(), 2)  # modification busts the cache
