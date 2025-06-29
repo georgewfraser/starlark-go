@@ -633,7 +633,7 @@ func listExtend(thread *Thread, x *List, y Iterable) {
 		x.elems = append(x.elems, ylist.elems...)
 	} else {
 		thread.writeList(x)
-		iter := y.Iterate()
+		iter := y.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		var z Value
 		for iter.Next(&z) {
@@ -691,7 +691,7 @@ func setField(x Value, name string, y Value) error {
 func getIndex(thread *Thread, x, y Value) (Value, error) {
 	switch x := x.(type) {
 	case Mapping: // dict
-		z, found, err := x.Get(y)
+		z, found, err := x.Get(NilThreadPlaceholder(), y)
 		if err != nil {
 			return nil, err
 		}
@@ -701,7 +701,7 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 		return z, nil
 
 	case Indexable: // string, list, tuple
-		n := x.Len()
+		n := x.Len(NilThreadPlaceholder())
 		i, err := AsInt32(y)
 		if err != nil {
 			return nil, fmt.Errorf("%s index: %s", x.Type(), err)
@@ -716,7 +716,7 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 		if tlist, ok := x.(*List); ok && thread != nil {
 			thread.readList(tlist)
 		}
-		return x.Index(i), nil
+		return x.Index(thread, i), nil
 	}
 	return nil, fmt.Errorf("unhandled index operation %s[%s]", x.Type(), y.Type())
 }
@@ -733,12 +733,12 @@ func outOfRange(i, n int, x Value) error {
 func setIndex(thread *Thread, x, y, z Value) error {
 	switch x := x.(type) {
 	case HasSetKey:
-		if err := x.SetKey(y, z); err != nil {
+		if err := x.SetKey(NilThreadPlaceholder(), y, z); err != nil {
 			return err
 		}
 
 	case HasSetIndex:
-		n := x.Len()
+		n := x.Len(NilThreadPlaceholder())
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
@@ -815,7 +815,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
-				z := make([]Value, 0, x.Len()+y.Len())
+				z := make([]Value, 0, x.Len(NilThreadPlaceholder())+y.Len(NilThreadPlaceholder()))
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
 				return NewList(z), nil
@@ -855,7 +855,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // difference
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter := y.Iterate(NilThreadPlaceholder())
 				defer iter.Done()
 				return x.Difference(iter)
 			}
@@ -1070,7 +1070,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 		case Mapping: // e.g. dict
 			// Ignore error from Get as we cannot distinguish true
 			// errors (value cycle, type error) from "key not found".
-			_, found, _ := y.Get(x)
+			_, found, _ := y.Get(NilThreadPlaceholder(), x)
 			return Bool(found), nil
 		case *Set:
 			ok, err := y.Has(x)
@@ -1116,7 +1116,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 
 		case *Set: // union
 			if y, ok := y.(*Set); ok {
-				iter := Iterate(y)
+				iter := Iterate(NilThreadPlaceholder(), y)
 				defer iter.Done()
 				return x.Union(iter)
 			}
@@ -1130,7 +1130,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // intersection
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter := y.Iterate(NilThreadPlaceholder())
 				defer iter.Done()
 				return x.Intersection(iter)
 			}
@@ -1144,7 +1144,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // symmetric difference
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter := y.Iterate(NilThreadPlaceholder())
 				defer iter.Done()
 				return x.SymmetricDifference(iter)
 			}
@@ -1318,7 +1318,7 @@ func slice(x, lo, hi, step_ Value) (Value, error) {
 		return nil, fmt.Errorf("invalid slice operand %s", x.Type())
 	}
 
-	n := sliceable.Len()
+	n := sliceable.Len(NilThreadPlaceholder())
 	step := 1
 	if step_ != None {
 		var err error
@@ -1372,7 +1372,7 @@ func slice(x, lo, hi, step_ Value) (Value, error) {
 		}
 	}
 
-	return sliceable.Slice(start, end, step), nil
+	return sliceable.Slice(NilThreadPlaceholder(), start, end, step), nil
 }
 
 // From Hacker's Delight, section 2.8.
@@ -1521,9 +1521,9 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 		if kwdict == nil {
 			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
 		}
-		oldlen := kwdict.Len()
-		kwdict.SetKey(k, v)
-		if kwdict.Len() == oldlen {
+		oldlen := kwdict.Len(NilThreadPlaceholder())
+		kwdict.SetKey(NilThreadPlaceholder(), k, v)
+		if kwdict.Len(NilThreadPlaceholder()) == oldlen {
 			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
 		}
 	}
@@ -1604,7 +1604,7 @@ func interpolate(format string, x Value) (Value, error) {
 			key := format[:j]
 			if dict, ok := x.(Mapping); !ok {
 				return nil, fmt.Errorf("format requires a mapping")
-			} else if v, found, _ := dict.Get(String(key)); found {
+			} else if v, found, _ := dict.Get(NilThreadPlaceholder(), String(key)); found {
 				arg = v
 			} else {
 				return nil, fmt.Errorf("key not found: %s", key)
