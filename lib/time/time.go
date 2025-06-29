@@ -242,7 +242,7 @@ func (d Duration) AttrNames() []string {
 
 // Cmp implements comparison of two Duration values. required by
 // starlark.TotallyOrdered interface.
-func (d Duration) Cmp(v starlark.Value, depth int) (int, error) {
+func (d Duration) Cmp(thread *starlark.Thread, v starlark.Value, depth int) (int, error) {
 	if x, y := d, v.(Duration); x < y {
 		return -1, nil
 	} else if x > y {
@@ -426,7 +426,7 @@ func (t Time) AttrNames() []string {
 
 // Cmp implements comparison of two Time values. Required by
 // starlark.TotallyOrdered interface.
-func (t Time) Cmp(yV starlark.Value, depth int) (int, error) {
+func (t Time) Cmp(thread *starlark.Thread, yV starlark.Value, depth int) (int, error) {
 	x := time.Time(t)
 	y := time.Time(yV.(Time))
 	if x.Before(y) {

@@ -162,7 +162,7 @@ type TotallyOrdered interface {
 	// Client code should not call this method.  Instead, use the
 	// standalone Compare or Equals functions, which are defined for
 	// all pairs of operands.
-	Cmp(y Value, depth int) (int, error)
+	Cmp(thread *Thread, y Value, depth int) (int, error)
 }
 
 var (
@@ -482,7 +482,7 @@ func isFinite(f float64) bool {
 
 // Cmp implements comparison of two Float values.
 // Required by the TotallyOrdered interface.
-func (f Float) Cmp(v Value, depth int) (int, error) {
+func (f Float) Cmp(thread *Thread, v Value, depth int) (int, error) {
 	g := v.(Float)
 	return floatCmp(f, g), nil
 }
@@ -1487,7 +1487,7 @@ func CompareDepth(op syntax.Token, x, y Value, depth int) (bool, error) {
 		}
 
 		if xcomp, ok := x.(TotallyOrdered); ok {
-			t, err := xcomp.Cmp(y, depth)
+			t, err := xcomp.Cmp(NilThreadPlaceholder(), y, depth)
 			if err != nil {
 				return false, err
 			}
