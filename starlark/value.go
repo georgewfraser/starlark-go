@@ -202,7 +202,7 @@ var (
 // of an Iterable is not necessarily known in advance of iteration.
 type Iterable interface {
 	Value
-	Iterate() Iterator // must be followed by call to Iterator.Done
+	Iterate(thread *Thread) Iterator // must be followed by call to Iterator.Done
 }
 
 // A Sequence is a sequence of values of known length.
@@ -300,8 +300,8 @@ type Mapping interface {
 // See [Entries] for example use.
 type IterableMapping interface {
 	Mapping
-	Iterate() Iterator // see Iterable interface
-	Items() []Tuple    // a new slice containing all key/value pairs
+	Iterate(thread *Thread) Iterator // see Iterable interface
+	Items() []Tuple                  // a new slice containing all key/value pairs
 }
 
 var _ IterableMapping = (*Dict)(nil)
@@ -614,12 +614,12 @@ func (si stringElems) String() string {
 		return si.s.String() + ".elems()"
 	}
 }
-func (si stringElems) Type() string          { return "string.elems" }
-func (si stringElems) Freeze()               {} // immutable
-func (si stringElems) Truth() Bool           { return True }
-func (si stringElems) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
-func (si stringElems) Iterate() Iterator     { return &stringElemsIterator{si, 0} }
-func (si stringElems) Len() int              { return len(si.s) }
+func (si stringElems) Type() string                    { return "string.elems" }
+func (si stringElems) Freeze()                         {} // immutable
+func (si stringElems) Truth() Bool                     { return True }
+func (si stringElems) Hash() (uint32, error)           { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
+func (si stringElems) Iterate(thread *Thread) Iterator { return &stringElemsIterator{si, 0} }
+func (si stringElems) Len() int                        { return len(si.s) }
 func (si stringElems) Index(i int) Value {
 	if si.ords {
 		return MakeInt(int(si.s[i]))
@@ -663,11 +663,11 @@ func (si stringCodepoints) String() string {
 		return si.s.String() + ".codepoints()"
 	}
 }
-func (si stringCodepoints) Type() string          { return "string.codepoints" }
-func (si stringCodepoints) Freeze()               {} // immutable
-func (si stringCodepoints) Truth() Bool           { return True }
-func (si stringCodepoints) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
-func (si stringCodepoints) Iterate() Iterator     { return &stringCodepointsIterator{si, 0} }
+func (si stringCodepoints) Type() string                    { return "string.codepoints" }
+func (si stringCodepoints) Freeze()                         {} // immutable
+func (si stringCodepoints) Truth() Bool                     { return True }
+func (si stringCodepoints) Hash() (uint32, error)           { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
+func (si stringCodepoints) Iterate(thread *Thread) Iterator { return &stringCodepointsIterator{si, 0} }
 
 type stringCodepointsIterator struct {
 	si stringCodepoints
@@ -873,7 +873,7 @@ func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lo
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
-func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
+func (d *Dict) Iterate(thread *Thread) Iterator                 { return d.ht.iterate() }
 func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
 func (d *Dict) String() string                                  { return toString(d) }
 func (d *Dict) Type() string                                    { return "dict" }
@@ -981,7 +981,7 @@ func (l *List) Slice(start, end, step int) Value {
 func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, listMethods) }
 func (l *List) AttrNames() []string             { return builtinAttrNames(listMethods) }
 
-func (l *List) Iterate() Iterator {
+func (l *List) Iterate(thread *Thread) Iterator {
 	if !l.frozen {
 		l.itercount++
 	}
@@ -1089,7 +1089,7 @@ func (t Tuple) Slice(start, end, step int) Value {
 	return tuple
 }
 
-func (t Tuple) Iterate() Iterator { return &tupleIterator{elems: t} }
+func (t Tuple) Iterate(thread *Thread) Iterator { return &tupleIterator{elems: t} }
 
 func (t Tuple) Freeze() {
 	for _, elem := range t {
@@ -1153,7 +1153,7 @@ func (s *Set) Clear() error                           { return s.ht.clear() }
 func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(k); return }
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
 func (s *Set) Len() int                               { return int(s.ht.len) }
-func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
+func (s *Set) Iterate(thread *Thread) Iterator        { return s.ht.iterate() }
 func (s *Set) String() string                         { return toString(s) }
 func (s *Set) Type() string                           { return "set" }
 func (s *Set) Freeze()                                { s.ht.freeze() }
@@ -1176,28 +1176,28 @@ func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error
 		if x.Len() < y.Len() {
 			return false, nil
 		}
-		iter := y.Iterate()
+		iter := y.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		return x.IsSuperset(iter)
 	case syntax.LE: // subset
 		if x.Len() > y.Len() {
 			return false, nil
 		}
-		iter := y.Iterate()
+		iter := y.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		return x.IsSubset(iter)
 	case syntax.GT: // proper superset
 		if x.Len() <= y.Len() {
 			return false, nil
 		}
-		iter := y.Iterate()
+		iter := y.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		return x.IsSuperset(iter)
 	case syntax.LT: // proper subset
 		if x.Len() >= y.Len() {
 			return false, nil
 		}
-		iter := y.Iterate()
+		iter := y.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		return x.IsSubset(iter)
 	default:
@@ -1602,9 +1602,9 @@ func Len(x Value) int {
 //
 // Warning: Iterate(x) != nil does not imply Len(x) >= 0.
 // Some iterables may have unknown length.
-func Iterate(x Value) Iterator {
+func Iterate(thread *Thread, x Value) Iterator {
 	if x, ok := x.(Iterable); ok {
-		return x.Iterate()
+		return x.Iterate(thread)
 	}
 	return nil
 }
