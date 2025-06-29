@@ -733,7 +733,7 @@ func outOfRange(i, n int, x Value) error {
 func setIndex(thread *Thread, x, y, z Value) error {
 	switch x := x.(type) {
 	case HasSetKey:
-		if err := x.SetKey(y, z); err != nil {
+		if err := x.SetKey(NilThreadPlaceholder(), y, z); err != nil {
 			return err
 		}
 
@@ -1522,7 +1522,7 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
 		}
 		oldlen := kwdict.Len()
-		kwdict.SetKey(k, v)
+		kwdict.SetKey(NilThreadPlaceholder(), k, v)
 		if kwdict.Len() == oldlen {
 			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
 		}
