@@ -92,9 +92,9 @@ func TestSetElements(t *testing.T) {
 
 func TestDictEntries(t *testing.T) {
 	dict := NewDict(2)
-	dict.SetKey(String("one"), MakeInt(1))
-	dict.SetKey(String("two"), MakeInt(2))
-	dict.SetKey(String("three"), MakeInt(3))
+	dict.SetKey(NilThreadPlaceholder(), String("one"), MakeInt(1))
+	dict.SetKey(NilThreadPlaceholder(), String("two"), MakeInt(2))
+	dict.SetKey(NilThreadPlaceholder(), String("three"), MakeInt(3))
 
 	var got []string
 	for k, v := range dict.Entries() {

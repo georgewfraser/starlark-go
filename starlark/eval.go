@@ -633,7 +633,7 @@ func listExtend(thread *Thread, x *List, y Iterable) {
 		x.elems = append(x.elems, ylist.elems...)
 	} else {
 		thread.writeList(x)
-		iter := y.Iterate()
+		iter := y.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		var z Value
 		for iter.Next(&z) {
@@ -733,7 +733,7 @@ func outOfRange(i, n int, x Value) error {
 func setIndex(thread *Thread, x, y, z Value) error {
 	switch x := x.(type) {
 	case HasSetKey:
-		if err := x.SetKey(y, z); err != nil {
+		if err := x.SetKey(NilThreadPlaceholder(), y, z); err != nil {
 			return err
 		}
 
@@ -855,7 +855,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // difference
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter := y.Iterate(NilThreadPlaceholder())
 				defer iter.Done()
 				return x.Difference(iter)
 			}
@@ -1116,7 +1116,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 
 		case *Set: // union
 			if y, ok := y.(*Set); ok {
-				iter := Iterate(y)
+				iter := Iterate(NilThreadPlaceholder(), y)
 				defer iter.Done()
 				return x.Union(iter)
 			}
@@ -1130,7 +1130,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // intersection
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter := y.Iterate(NilThreadPlaceholder())
 				defer iter.Done()
 				return x.Intersection(iter)
 			}
@@ -1144,7 +1144,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *Set: // symmetric difference
 			if y, ok := y.(*Set); ok {
-				iter := y.Iterate()
+				iter := y.Iterate(NilThreadPlaceholder())
 				defer iter.Done()
 				return x.SymmetricDifference(iter)
 			}
@@ -1372,7 +1372,7 @@ func slice(x, lo, hi, step_ Value) (Value, error) {
 		}
 	}
 
-	return sliceable.Slice(start, end, step), nil
+	return sliceable.Slice(NilThreadPlaceholder(), start, end, step), nil
 }
 
 // From Hacker's Delight, section 2.8.
@@ -1522,7 +1522,7 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
 		}
 		oldlen := kwdict.Len()
-		kwdict.SetKey(k, v)
+		kwdict.SetKey(NilThreadPlaceholder(), k, v)
 		if kwdict.Len() == oldlen {
 			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
 		}
