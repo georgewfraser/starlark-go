@@ -64,12 +64,12 @@ func (ht *hashtable) init(size int) {
 	ht.tailLink = &ht.head
 }
 
-func (ht *hashtable) freeze() {
+func (ht *hashtable) freeze(thread *Thread) {
 	if !ht.frozen {
 		ht.frozen = true
 		for e := ht.head; e != nil; e = e.next {
-			e.key.Freeze()
-			e.value.Freeze()
+			e.key.Freeze(thread)
+			e.value.Freeze(thread)
 		}
 	}
 }

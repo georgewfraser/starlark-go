@@ -129,7 +129,7 @@ func freeze(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, k
 	if len(args) != 1 {
 		return nil, fmt.Errorf("freeze got %d arguments, wants 1", len(args))
 	}
-	args[0].Freeze()
+	args[0].Freeze(starlark.NilThreadPlaceholder())
 	return args[0], nil
 }
 

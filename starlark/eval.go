@@ -181,9 +181,9 @@ func (d StringDict) String() string {
 	return buf.String()
 }
 
-func (d StringDict) Freeze() {
+func (d StringDict) Freeze(thread *Thread) {
 	for _, v := range d {
-		v.Freeze()
+		v.Freeze(thread)
 	}
 }
 
@@ -364,7 +364,7 @@ func ExecFileOptions(opts *syntax.FileOptions, thread *Thread, filename string, 
 	}
 
 	g, err := mod.Init(thread, predeclared)
-	g.Freeze()
+	g.Freeze(NilThreadPlaceholder())
 	return g, err
 }
 

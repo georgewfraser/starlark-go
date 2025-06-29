@@ -890,7 +890,7 @@ func (r rangeValue) Slice(start, end, step int) Value {
 	}
 }
 
-func (r rangeValue) Freeze() {} // immutable
+func (r rangeValue) Freeze(thread *Thread) {} // immutable
 func (r rangeValue) String() string {
 	if r.step != 1 {
 		return fmt.Sprintf("range(%d, %d, %d)", r.start, r.stop, r.step)
@@ -1524,7 +1524,7 @@ var _ Iterable = (*bytesIterable)(nil)
 
 func (bi bytesIterable) String() string        { return bi.bytes.String() + ".elems()" }
 func (bi bytesIterable) Type() string          { return "bytes.elems" }
-func (bi bytesIterable) Freeze()               {} // immutable
+func (bi bytesIterable) Freeze(thread *Thread) {}
 func (bi bytesIterable) Truth() Bool           { return True }
 func (bi bytesIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", bi.Type()) }
 func (bi bytesIterable) Iterate() Iterator     { return &bytesIterator{bi.bytes} }

@@ -103,7 +103,7 @@ type Value interface {
 	// reference cycles; this can be achieved by first checking
 	// the value's frozen state, then setting it, and only then
 	// visiting any other values that it references.
-	Freeze()
+	Freeze(thread *Thread)
 
 	// Truth returns the truth value of an object.
 	Truth() Bool
@@ -390,7 +390,7 @@ const None = NoneType(0)
 
 func (NoneType) String() string        { return "None" }
 func (NoneType) Type() string          { return "NoneType" }
-func (NoneType) Freeze()               {} // immutable
+func (NoneType) Freeze(thread *Thread) {} // immutable
 func (NoneType) Truth() Bool           { return False }
 func (NoneType) Hash() (uint32, error) { return 0, nil }
 
@@ -410,7 +410,7 @@ func (b Bool) String() string {
 	}
 }
 func (b Bool) Type() string          { return "bool" }
-func (b Bool) Freeze()               {} // immutable
+func (b Bool) Freeze(thread *Thread) {} // immutable
 func (b Bool) Truth() Bool           { return b }
 func (b Bool) Hash() (uint32, error) { return uint32(b2i(bool(b))), nil }
 func (x Bool) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
@@ -459,9 +459,9 @@ func (f Float) format(buf *strings.Builder, conv byte) {
 	buf.WriteString(strconv.FormatFloat(ff, conv, 6, 64))
 }
 
-func (f Float) Type() string { return "float" }
-func (f Float) Freeze()      {} // immutable
-func (f Float) Truth() Bool  { return f != 0.0 }
+func (f Float) Type() string          { return "float" }
+func (f Float) Freeze(thread *Thread) {}
+func (f Float) Truth() Bool           { return f != 0.0 }
 func (f Float) Hash() (uint32, error) {
 	// Equal float and int values must yield the same hash.
 	// TODO(adonovan): opt: if f is non-integral, and thus not equal
@@ -565,7 +565,7 @@ type String string
 func (s String) String() string        { return syntax.Quote(string(s), false) }
 func (s String) GoString() string      { return string(s) }
 func (s String) Type() string          { return "string" }
-func (s String) Freeze()               {} // immutable
+func (s String) Freeze(thread *Thread) {}
 func (s String) Truth() Bool           { return len(s) > 0 }
 func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
 func (s String) Len() int              { return len(s) } // bytes
@@ -615,7 +615,7 @@ func (si stringElems) String() string {
 	}
 }
 func (si stringElems) Type() string          { return "string.elems" }
-func (si stringElems) Freeze()               {} // immutable
+func (si stringElems) Freeze(thread *Thread) {}
 func (si stringElems) Truth() Bool           { return True }
 func (si stringElems) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
 func (si stringElems) Iterate() Iterator     { return &stringElemsIterator{si, 0} }
@@ -664,7 +664,7 @@ func (si stringCodepoints) String() string {
 	}
 }
 func (si stringCodepoints) Type() string          { return "string.codepoints" }
-func (si stringCodepoints) Freeze()               {} // immutable
+func (si stringCodepoints) Freeze(thread *Thread) {}
 func (si stringCodepoints) Truth() Bool           { return True }
 func (si stringCodepoints) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
 func (si stringCodepoints) Iterate() Iterator     { return &stringCodepointsIterator{si, 0} }
@@ -729,7 +729,7 @@ func (m *module) makeGlobalDict() StringDict {
 func (fn *Function) Name() string          { return fn.funcode.Name } // "lambda" for anonymous functions
 func (fn *Function) Doc() string           { return fn.funcode.Doc }
 func (fn *Function) Hash() (uint32, error) { return hashString(fn.funcode.Name), nil }
-func (fn *Function) Freeze()               { fn.defaults.Freeze(); fn.freevars.Freeze() }
+func (fn *Function) Freeze(thread *Thread) { fn.defaults.Freeze(thread); fn.freevars.Freeze(thread) }
 func (fn *Function) String() string        { return toString(fn) }
 func (fn *Function) Type() string          { return "function" }
 func (fn *Function) Truth() Bool           { return true }
@@ -802,9 +802,9 @@ type Builtin struct {
 }
 
 func (b *Builtin) Name() string { return b.name }
-func (b *Builtin) Freeze() {
+func (b *Builtin) Freeze(thread *Thread) {
 	if b.recv != nil {
-		b.recv.Freeze()
+		b.recv.Freeze(thread)
 	}
 }
 func (b *Builtin) Hash() (uint32, error) {
@@ -877,7 +877,7 @@ func (d *Dict) Iterate() Iterator                               { return d.ht.it
 func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
 func (d *Dict) String() string                                  { return toString(d) }
 func (d *Dict) Type() string                                    { return "dict" }
-func (d *Dict) Freeze()                                         { d.ht.freeze() }
+func (d *Dict) Freeze(thread *Thread)                           { d.ht.freeze(thread) }
 func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 
@@ -936,11 +936,11 @@ type List struct {
 // Callers should not subsequently modify elems.
 func NewList(elems []Value) *List { return &List{elems: elems} }
 
-func (l *List) Freeze() {
+func (l *List) Freeze(thread *Thread) {
 	if !l.frozen {
 		l.frozen = true
 		for _, elem := range l.elems {
-			elem.Freeze()
+			elem.Freeze(thread)
 		}
 	}
 }
@@ -1091,9 +1091,9 @@ func (t Tuple) Slice(start, end, step int) Value {
 
 func (t Tuple) Iterate() Iterator { return &tupleIterator{elems: t} }
 
-func (t Tuple) Freeze() {
+func (t Tuple) Freeze(thread *Thread) {
 	for _, elem := range t {
-		elem.Freeze()
+		elem.Freeze(thread)
 	}
 }
 func (t Tuple) String() string { return toString(t) }
@@ -1156,7 +1156,7 @@ func (s *Set) Len() int                               { return int(s.ht.len) }
 func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
 func (s *Set) String() string                         { return toString(s) }
 func (s *Set) Type() string                           { return "set" }
-func (s *Set) Freeze()                                { s.ht.freeze() }
+func (s *Set) Freeze(thread *Thread)                  { s.ht.freeze(thread) }
 func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("unhashable type: set") }
 func (s *Set) Truth() Bool                            { return s.Len() > 0 }
 
@@ -1633,7 +1633,7 @@ var (
 
 func (b Bytes) String() string        { return syntax.Quote(string(b), true) }
 func (b Bytes) Type() string          { return "bytes" }
-func (b Bytes) Freeze()               {} // immutable
+func (b Bytes) Freeze(thread *Thread) {}
 func (b Bytes) Truth() Bool           { return len(b) > 0 }
 func (b Bytes) Hash() (uint32, error) { return String(b).Hash() }
 func (b Bytes) Len() int              { return len(b) }

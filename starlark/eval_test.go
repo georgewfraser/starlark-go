@@ -197,12 +197,12 @@ func TestExecFile(t *testing.T) {
 // A fib is an iterable value representing the infinite Fibonacci sequence.
 type fib struct{}
 
-func (t fib) Freeze()                    {}
-func (t fib) String() string             { return "fib" }
-func (t fib) Type() string               { return "fib" }
-func (t fib) Truth() starlark.Bool       { return true }
-func (t fib) Hash() (uint32, error)      { return 0, fmt.Errorf("fib is unhashable") }
-func (t fib) Iterate() starlark.Iterator { return &fibIterator{0, 1} }
+func (t fib) Freeze(thread *starlark.Thread) {}
+func (t fib) String() string                 { return "fib" }
+func (t fib) Type() string                   { return "fib" }
+func (t fib) Truth() starlark.Bool           { return true }
+func (t fib) Hash() (uint32, error)          { return 0, fmt.Errorf("fib is unhashable") }
+func (t fib) Iterate() starlark.Iterator     { return &fibIterator{0, 1} }
 
 type fibIterator struct{ x, y int }
 
@@ -262,11 +262,11 @@ func (hf *hasfields) Type() string          { return "hasfields" }
 func (hf *hasfields) Truth() starlark.Bool  { return true }
 func (hf *hasfields) Hash() (uint32, error) { return 42, nil }
 
-func (hf *hasfields) Freeze() {
+func (hf *hasfields) Freeze(thread *starlark.Thread) {
 	if !hf.frozen {
 		hf.frozen = true
 		for _, v := range hf.attrs {
-			v.Freeze()
+			v.Freeze(thread)
 		}
 	}
 }
@@ -316,12 +316,12 @@ type sneaky struct{ count int }
 
 var _ starlark.Callable = (*sneaky)(nil)
 
-func (s *sneaky) String() string        { return fmt.Sprintf("sneaky(%d)", s.count) }
-func (s *sneaky) Type() string          { return "sneaky" }
-func (s *sneaky) Freeze()               {}
-func (s *sneaky) Truth() starlark.Bool  { return true }
-func (s *sneaky) Hash() (uint32, error) { return 0, fmt.Errorf("sneaky is unhashable") }
-func (s *sneaky) Name() string          { return "sneaky" }
+func (s *sneaky) String() string                 { return fmt.Sprintf("sneaky(%d)", s.count) }
+func (s *sneaky) Type() string                   { return "sneaky" }
+func (s *sneaky) Freeze(thread *starlark.Thread) {}
+func (s *sneaky) Truth() starlark.Bool           { return true }
+func (s *sneaky) Hash() (uint32, error)          { return 0, fmt.Errorf("sneaky is unhashable") }
+func (s *sneaky) Name() string                   { return "sneaky" }
 func (s *sneaky) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	if len(args)+len(kwargs) > 0 {
 		return nil, fmt.Errorf("sneaky: unexpected arguments")
@@ -912,11 +912,11 @@ g(z=7)
 
 type badType string
 
-func (b *badType) String() string        { return "badType" }
-func (b *badType) Type() string          { return "badType:" + string(*b) } // panics if b==nil
-func (b *badType) Truth() starlark.Bool  { return true }
-func (b *badType) Hash() (uint32, error) { return 0, nil }
-func (b *badType) Freeze()               {}
+func (b *badType) String() string                 { return "badType" }
+func (b *badType) Type() string                   { return "badType:" + string(*b) } // panics if b==nil
+func (b *badType) Truth() starlark.Bool           { return true }
+func (b *badType) Hash() (uint32, error)          { return 0, nil }
+func (b *badType) Freeze(thread *starlark.Thread) {}
 
 var _ starlark.Value = new(badType)
 
@@ -1129,7 +1129,7 @@ func TestDebugFrame(t *testing.T) {
 				bind, val := fn.FreeVar(i)
 				dict.SetKey(starlark.String(bind.Name), val) // ignore error
 			}
-			dict.Freeze()
+			dict.Freeze(starlark.NilThreadPlaceholder())
 			return dict, nil
 		}),
 	}

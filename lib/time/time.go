@@ -196,7 +196,7 @@ func (d Duration) Type() string { return "time.duration" }
 
 // Freeze renders Duration immutable. required by starlark.Value interface
 // because duration is already immutable this is a no-op.
-func (d Duration) Freeze() {}
+func (d Duration) Freeze(thread *starlark.Thread) {}
 
 // Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y)
 // required by starlark.Value interface.
@@ -370,7 +370,7 @@ func (t Time) Type() string { return "time.time" }
 
 // Freeze renders time immutable. required by starlark.Value interface
 // because Time is already immutable this is a no-op.
-func (t Time) Freeze() {}
+func (t Time) Freeze(thread *starlark.Thread) {}
 
 // Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y)
 // required by starlark.Value interface.
