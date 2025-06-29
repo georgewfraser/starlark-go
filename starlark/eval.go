@@ -368,6 +368,28 @@ func ExecFileOptions(opts *syntax.FileOptions, thread *Thread, filename string, 
 	return g, err
 }
 
+// PrepareExecFile is like ExecFileOptions but it prepares a program for incremental execution.
+func PrepareExecFile(opts *syntax.FileOptions, filename string, src interface{}, predeclared StringDict) (*Function, error) {
+	// Parse, resolve, and compile a Starlark source file.
+	_, prog, err := SourceProgramOptions(opts, filename, src, predeclared.Has)
+
+	return makeToplevelFunction(prog.compiled, predeclared), err
+}
+
+// Exec executes the prepared program against the specified predeclared environment,
+// using incremental execution to only execute the portions of the program that are invalidated by the changes in the predeclared environment.
+func ExecPreparedProgram(thread *Thread, toplevel *Function, predeclared StringDict) (StringDict, error) {
+	// predeclared globals may have changed, re-validate on every fresh program execution.
+	thread.cache.version++
+
+	// Call the toplevel function.
+	_, err := Call(thread, toplevel, nil, nil)
+
+	// Convert the global environment to a map.
+	// We return a (partial) map even in case of error.
+	return toplevel.Globals(), err
+}
+
 // SourceProgram calls [SourceProgramOptions] using [syntax.LegacyFileOptions].
 //
 // Deprecated: use [SourceProgramOptions] with [syntax.FileOptions] instead,

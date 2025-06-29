@@ -196,6 +196,54 @@ func TestExecFile(t *testing.T) {
 	}
 }
 
+func TestIncrementalExecution(t *testing.T) {
+	opts := &syntax.FileOptions{}
+	filename := "incremental.star"
+	source := `
+def f():
+	_ = x
+	return s()
+
+y = f()`
+	predeclared := starlark.StringDict{
+		"x": starlark.MakeInt(1),
+		"s": &sneaky{},
+	}
+	prog, err := starlark.PrepareExecFile(opts, filename, source, predeclared)
+	if err != nil {
+		t.Fatalf("PrepareExecFile: %v", err)
+	}
+	thread := new(starlark.Thread)
+
+	// Execute program once, expecting sneaky() to return 1.
+	globals, err := starlark.ExecPreparedProgram(thread, prog, predeclared)
+	if err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	if got, want := globals["y"], starlark.MakeInt(1); got != want {
+		t.Errorf("after first exec, y = %s, want %s", got, want)
+	}
+
+	// Execute program again, expecting sneaky() to return 1 again because predeclared has not changed.
+	globals, err = starlark.ExecPreparedProgram(thread, prog, predeclared)
+	if err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	if got, want := globals["y"], starlark.MakeInt(1); got != want {
+		t.Errorf("after second exec, y = %s, want %s", got, want)
+	}
+
+	// Now change predeclared, and execute again, expecting sneaky() to return 2.
+	predeclared["x"] = starlark.MakeInt(2)
+	globals, err = starlark.ExecPreparedProgram(thread, prog, predeclared)
+	if err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	if got, want := globals["y"], starlark.MakeInt(2); got != want {
+		t.Errorf("after third exec, y = %s, want %s", got, want)
+	}
+}
+
 // A fib is an iterable value representing the infinite Fibonacci sequence.
 type fib struct{}
 

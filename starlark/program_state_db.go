@@ -117,7 +117,7 @@ func (db *ProgramStateDB) Get(function *Function, args []Interned) *Record {
 		if rec.result.Empty() {
 			return nil
 		}
-		if rec.function == function && argsEqual(rec.args, args) {
+		if fnEqual(rec.function, function) && argsEqual(rec.args, args) {
 			return rec
 		}
 	}
@@ -129,7 +129,7 @@ func (db *ProgramStateDB) Put(function *Function, args []Interned, deps Dependen
 	for i := 0; i < CACHE_SIZE; i++ {
 		pos := (idx + i) % CACHE_SIZE
 		rec := &db.memo[pos]
-		if rec.result.Empty() || (rec.function == function && argsEqual(rec.args, args)) {
+		if rec.result.Empty() || (fnEqual(rec.function, function) && argsEqual(rec.args, args)) {
 			db.memo[pos] = Record{function, args, deps, result, verified}
 			return &db.memo[pos]
 		}
@@ -148,18 +148,6 @@ func (i Interned) Empty() bool {
 
 func (i Interned) words() [2]uintptr {
 	return *(*[2]uintptr)(unsafe.Pointer(&i.value))
-}
-
-func argsEqual(a, b []Interned) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !a[i].Eq(b[i]) {
-			return false
-		}
-	}
-	return true
 }
 
 // validate checks whether the given record is still valid under the
@@ -225,13 +213,21 @@ func (db *ProgramStateDB) validate(rec *Record) bool {
 	return true
 }
 
-// index computes the position within the memo table for the given key.
-// hash computes the memo table index for the given key.
+// hashKey computes a hash key for the given function and arguments.
 func hashKey(function *Function, args []Interned) int {
 	var buf [8]byte
 	h := xxhash.New()
-	binary.LittleEndian.PutUint64(buf[:], uint64(uintptr(unsafe.Pointer(function))))
+	// Hash function based on *Funcode and freevars.
+	binary.LittleEndian.PutUint64(buf[:], uint64(uintptr(unsafe.Pointer(function.funcode))))
 	_, _ = h.Write(buf[:])
+	for _, v := range function.freevars {
+		words := Interned{value: v}.words()
+		binary.LittleEndian.PutUint64(buf[:], uint64(words[0]))
+		_, _ = h.Write(buf[:])
+		binary.LittleEndian.PutUint64(buf[:], uint64(words[1]))
+		_, _ = h.Write(buf[:])
+	}
+	// Hash the args.
 	for _, a := range args {
 		words := a.words()
 		binary.LittleEndian.PutUint64(buf[:], uint64(words[0]))
@@ -240,4 +236,40 @@ func hashKey(function *Function, args []Interned) int {
 		_, _ = h.Write(buf[:])
 	}
 	return int(h.Sum64() % uint64(CACHE_SIZE))
+}
+
+func fnEqual(a, b *Function) bool {
+	// Fast path: same function pointer.
+	if a == b {
+		return true
+	}
+	// Slow path: compare funcode and freevars.
+	aCode := uint64(uintptr(unsafe.Pointer(a.funcode)))
+	bCode := uint64(uintptr(unsafe.Pointer(b.funcode)))
+	if aCode != bCode {
+		return false
+	}
+	if len(a.freevars) != len(b.freevars) {
+		return false
+	}
+	for i := range a.freevars {
+		aVar := Interned{value: a.freevars[i]}
+		bVar := Interned{value: b.freevars[i]}
+		if !aVar.Eq(bVar) {
+			return false
+		}
+	}
+	return true
+}
+
+func argsEqual(a, b []Interned) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !a[i].Eq(b[i]) {
+			return false
+		}
+	}
+	return true
 }

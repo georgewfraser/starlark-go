@@ -1,6 +1,10 @@
 package starlark
 
-import "testing"
+import (
+	"testing"
+
+	"go.starlark.net/internal/compile"
+)
 
 // helpers produce dynamic values to avoid compile-time optimizations.
 func dynamicInt(i int) int          { return i + 0 }
@@ -83,8 +87,8 @@ func TestProgramStateDBGetWrongArgument(t *testing.T) {
 
 func TestProgramStateDBGetWrongFunction(t *testing.T) {
 	db := NewProgramStateDB()
-	fn1 := &Function{}
-	fn2 := &Function{}
+	fn1 := &Function{funcode: &compile.Funcode{}}
+	fn2 := &Function{funcode: &compile.Funcode{}}
 	arg := db.Intern(MakeInt(dynamicInt(3)))
 	result := db.Intern(String("x"))
 	db.Put(fn1, []Interned{arg}, Dependencies{}, result, 0)
