@@ -181,7 +181,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		case starlark.Iterable:
 			// e.g. tuple, list
 			buf.WriteByte('[')
-			iter := x.Iterate()
+			iter := x.Iterate(starlark.NilThreadPlaceholder())
 			defer iter.Done()
 			var elem starlark.Value
 			for i := 0; iter.Next(&elem); i++ {

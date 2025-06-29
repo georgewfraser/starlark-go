@@ -362,7 +362,7 @@ loop:
 			}
 			if args != nil {
 				// Add elements from *args sequence.
-				iter := Iterate(args)
+				iter := Iterate(NilThreadPlaceholder(), args)
 				if iter == nil {
 					err = fmt.Errorf("argument after * must be iterable, not %s", args.Type())
 					break loop
@@ -396,7 +396,7 @@ loop:
 		case compile.ITERPUSH:
 			x := stack[sp-1]
 			sp--
-			iter := Iterate(x)
+			iter := Iterate(NilThreadPlaceholder(), x)
 			if iter == nil {
 				err = fmt.Errorf("%s value is not iterable", x.Type())
 				break loop
@@ -510,7 +510,7 @@ loop:
 			n := int(arg)
 			iterable := stack[sp-1]
 			sp--
-			iter := Iterate(iterable)
+			iter := Iterate(NilThreadPlaceholder(), iterable)
 			if iter == nil {
 				err = fmt.Errorf("got %s in sequence assignment", iterable.Type())
 				break loop
