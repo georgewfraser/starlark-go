@@ -1151,7 +1151,7 @@ f(1)
 	if err != nil {
 		t.Fatalf("ExecFile returned error %q, expected panic", err)
 	}
-	got := m["e"].(*starlark.List).Index(0).String()
+	got := m["e"].(*starlark.List).Index(starlark.NilThreadPlaceholder(), 0).String()
 	want := `{"q": 2, "inner": 4, "outer": 3}`
 	if got != want {
 		t.Errorf("env() returned %s, want %s", got, want)

@@ -716,7 +716,7 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 		if tlist, ok := x.(*List); ok && thread != nil {
 			thread.readList(tlist)
 		}
-		return x.Index(i), nil
+		return x.Index(thread, i), nil
 	}
 	return nil, fmt.Errorf("unhandled index operation %s[%s]", x.Type(), y.Type())
 }

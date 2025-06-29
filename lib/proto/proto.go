@@ -1010,7 +1010,7 @@ func (rf *RepeatedField) checkMutable(verb string) error {
 
 func (rf *RepeatedField) Freeze()               { *rf.frozen = true }
 func (rf *RepeatedField) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", rf.Type()) }
-func (rf *RepeatedField) Index(i int) starlark.Value {
+func (rf *RepeatedField) Index(thread *starlark.Thread, i int) starlark.Value {
 	return toStarlark1(rf.typ, rf.list.Get(i), rf.frozen)
 }
 func (rf *RepeatedField) Iterate(thread *starlark.Thread) starlark.Iterator {
@@ -1042,7 +1042,7 @@ type repeatedFieldIterator struct {
 
 func (it *repeatedFieldIterator) Next(p *starlark.Value) bool {
 	if it.i < it.rf.Len() {
-		*p = it.rf.Index(it.i)
+		*p = it.rf.Index(starlark.NilThreadPlaceholder(), it.i)
 		it.i++
 		return true
 	}

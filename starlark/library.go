@@ -856,9 +856,9 @@ var (
 	_ Sliceable  = rangeValue{}
 )
 
-func (r rangeValue) Len() int                        { return r.len }
-func (r rangeValue) Index(i int) Value               { return MakeInt(r.start + i*r.step) }
-func (r rangeValue) Iterate(thread *Thread) Iterator { return &rangeIterator{r, 0} }
+func (r rangeValue) Len() int                          { return r.len }
+func (r rangeValue) Index(thread *Thread, i int) Value { return MakeInt(r.start + i*r.step) }
+func (r rangeValue) Iterate(thread *Thread) Iterator   { return &rangeIterator{r, 0} }
 
 // rangeLen calculates the length of a range with the provided start, stop, and step.
 // caller must ensure that step is non-zero.
@@ -947,7 +947,7 @@ type rangeIterator struct {
 
 func (it *rangeIterator) Next(p *Value) bool {
 	if it.i < it.r.len {
-		*p = it.r.Index(it.i)
+		*p = it.r.Index(NilThreadPlaceholder(), it.i)
 		it.i++
 		return true
 	}
