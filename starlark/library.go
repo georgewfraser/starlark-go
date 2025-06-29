@@ -856,7 +856,7 @@ var (
 	_ Sliceable  = rangeValue{}
 )
 
-func (r rangeValue) Len() int                          { return r.len }
+func (r rangeValue) Len(thread *Thread) int            { return r.len }
 func (r rangeValue) Index(thread *Thread, i int) Value { return MakeInt(r.start + i*r.step) }
 func (r rangeValue) Iterate(thread *Thread) Iterator   { return &rangeIterator{r, 0} }
 
@@ -1371,7 +1371,7 @@ func list_index(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 
 	recv := b.Receiver().(*List)
 	thread.readList(recv)
-	start, end, err := indices(start_, end_, recv.Len())
+	start, end, err := indices(start_, end_, recv.Len(NilThreadPlaceholder()))
 	if err != nil {
 		return nil, nameErr(b, err)
 	}
@@ -1399,10 +1399,10 @@ func list_insert(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	}
 
 	if index < 0 {
-		index += recv.Len()
+		index += recv.Len(NilThreadPlaceholder())
 	}
 
-	if index >= recv.Len() {
+	if index >= recv.Len(NilThreadPlaceholder()) {
 		thread.readList(recv)
 		thread.writeList(recv)
 		// end
@@ -1447,7 +1447,7 @@ func list_remove(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := b.Receiver()
 	list := recv.(*List)
-	n := list.Len()
+	n := list.Len(NilThreadPlaceholder())
 	i := n - 1
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &i); err != nil {
 		return nil, err
@@ -2219,7 +2219,7 @@ func set_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	if b.Receiver().(*Set).Len() > 0 {
+	if b.Receiver().(*Set).Len(NilThreadPlaceholder()) > 0 {
 		if err := b.Receiver().(*Set).Clear(); err != nil {
 			return nil, nameErr(b, err)
 		}
@@ -2452,7 +2452,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 	}
 
 	// Then add the kwargs.
-	before := dict.Len()
+	before := dict.Len(NilThreadPlaceholder())
 	for _, pair := range kwargs {
 		if err := dict.SetKey(NilThreadPlaceholder(), pair[0], pair[1]); err != nil {
 			return err // dict is frozen
@@ -2460,7 +2460,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 	}
 	// In the common case, each kwarg will add another dict entry.
 	// If that's not so, check whether it is because there was a duplicate kwarg.
-	if dict.Len() < before+len(kwargs) {
+	if dict.Len(NilThreadPlaceholder()) < before+len(kwargs) {
 		keys := make(map[String]bool, len(kwargs))
 		for _, kv := range kwargs {
 			k := kv[0].(String)

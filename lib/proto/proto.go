@@ -1019,7 +1019,7 @@ func (rf *RepeatedField) Iterate(thread *starlark.Thread) starlark.Iterator {
 	}
 	return &repeatedFieldIterator{rf, 0}
 }
-func (rf *RepeatedField) Len() int { return rf.list.Len() }
+func (rf *RepeatedField) Len(thread *starlark.Thread) int { return rf.list.Len() }
 func (rf *RepeatedField) String() string {
 	// We use list [...] notation even though it not exactly a list.
 	buf := new(bytes.Buffer)
@@ -1041,7 +1041,7 @@ type repeatedFieldIterator struct {
 }
 
 func (it *repeatedFieldIterator) Next(p *starlark.Value) bool {
-	if it.i < it.rf.Len() {
+	if it.i < it.rf.Len(starlark.NilThreadPlaceholder()) {
 		*p = it.rf.Index(starlark.NilThreadPlaceholder(), it.i)
 		it.i++
 		return true
@@ -1190,7 +1190,7 @@ func (mf *MapField) Items(thread *starlark.Thread) []starlark.Tuple {
 	return out
 }
 
-func (mf *MapField) Len() int { return mf.mp.Len() }
+func (mf *MapField) Len(thread *starlark.Thread) int { return mf.mp.Len() }
 
 func (mf *MapField) String() string {
 	// We want to use {k1: v1, k2: v2} notation, like a dict.

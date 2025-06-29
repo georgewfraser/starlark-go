@@ -474,12 +474,12 @@ loop:
 			k := stack[sp-2]
 			v := stack[sp-1]
 			sp -= 3
-			oldlen := dict.Len()
+			oldlen := dict.Len(NilThreadPlaceholder())
 			if err2 := dict.SetKey(NilThreadPlaceholder(), k, v); err2 != nil {
 				err = err2
 				break loop
 			}
-			if op == compile.SETDICTUNIQ && dict.Len() == oldlen {
+			if op == compile.SETDICTUNIQ && dict.Len(NilThreadPlaceholder()) == oldlen {
 				err = fmt.Errorf("duplicate key: %v", k)
 				break loop
 			}
