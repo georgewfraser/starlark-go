@@ -881,7 +881,7 @@ func (d *Dict) SetKey(thread *Thread, k, v Value) error { return d.ht.insert(k, 
 func (d *Dict) String() string                          { return toString(d) }
 func (d *Dict) Type() string                            { return "dict" }
 func (d *Dict) Freeze()                                 { d.ht.freeze() }
-func (d *Dict) Truth() Bool                             { return d.Len() > 0 }
+func (d *Dict) Truth() Bool                             { return d.Len(NilThreadPlaceholder()) > 0 }
 func (d *Dict) Hash() (uint32, error)                   { return 0, fmt.Errorf("unhashable type: dict") }
 
 func (x *Dict) Union(y *Dict) *Dict {
@@ -963,7 +963,7 @@ func (l *List) checkMutable(verb string) error {
 func (l *List) String() string                    { return toString(l) }
 func (l *List) Type() string                      { return "list" }
 func (l *List) Hash() (uint32, error)             { return 0, fmt.Errorf("unhashable type: list") }
-func (l *List) Truth() Bool                       { return l.Len() > 0 }
+func (l *List) Truth() Bool                       { return l.Len(NilThreadPlaceholder()) > 0 }
 func (l *List) Len(thread *Thread) int            { return len(l.elems) }
 func (l *List) Index(thread *Thread, i int) Value { return l.elems[i] }
 
