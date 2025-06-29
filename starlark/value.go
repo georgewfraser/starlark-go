@@ -208,7 +208,7 @@ type Iterable interface {
 // A Sequence is a sequence of values of known length.
 type Sequence interface {
 	Iterable
-	Len() int
+	Len(thread *Thread) int
 }
 
 var (
@@ -220,8 +220,9 @@ var (
 // It is not necessarily iterable.
 type Indexable interface {
 	Value
-	Index(i int) Value // requires 0 <= i < Len()
-	Len() int
+	// requires 0 <= i < Len(thread)
+	Index(i int) Value
+	Len(thread *Thread) int
 }
 
 // A Sliceable is a sequence that can be cut into pieces with the slice operator (x[i:j:step]).
@@ -562,14 +563,14 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 // of a Starlark string as a Go string.
 type String string
 
-func (s String) String() string        { return syntax.Quote(string(s), false) }
-func (s String) GoString() string      { return string(s) }
-func (s String) Type() string          { return "string" }
-func (s String) Freeze()               {} // immutable
-func (s String) Truth() Bool           { return len(s) > 0 }
-func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
-func (s String) Len() int              { return len(s) } // bytes
-func (s String) Index(i int) Value     { return s[i : i+1] }
+func (s String) String() string         { return syntax.Quote(string(s), false) }
+func (s String) GoString() string       { return string(s) }
+func (s String) Type() string           { return "string" }
+func (s String) Freeze()                {} // immutable
+func (s String) Truth() Bool            { return len(s) > 0 }
+func (s String) Hash() (uint32, error)  { return hashString(string(s)), nil }
+func (s String) Len(thread *Thread) int { return len(s) } // bytes
+func (s String) Index(i int) Value      { return s[i : i+1] }
 
 func (s String) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -614,12 +615,12 @@ func (si stringElems) String() string {
 		return si.s.String() + ".elems()"
 	}
 }
-func (si stringElems) Type() string          { return "string.elems" }
-func (si stringElems) Freeze()               {} // immutable
-func (si stringElems) Truth() Bool           { return True }
-func (si stringElems) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
-func (si stringElems) Iterate() Iterator     { return &stringElemsIterator{si, 0} }
-func (si stringElems) Len() int              { return len(si.s) }
+func (si stringElems) Type() string           { return "string.elems" }
+func (si stringElems) Freeze()                {} // immutable
+func (si stringElems) Truth() Bool            { return True }
+func (si stringElems) Hash() (uint32, error)  { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
+func (si stringElems) Iterate() Iterator      { return &stringElemsIterator{si, 0} }
+func (si stringElems) Len(thread *Thread) int { return len(si.s) }
 func (si stringElems) Index(i int) Value {
 	if si.ords {
 		return MakeInt(int(si.s[i]))
@@ -872,20 +873,20 @@ func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.de
 func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
 func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
-func (d *Dict) Len() int                                        { return int(d.ht.len) }
+func (d *Dict) Len(thread *Thread) int                          { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
 func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
 func (d *Dict) String() string                                  { return toString(d) }
 func (d *Dict) Type() string                                    { return "dict" }
 func (d *Dict) Freeze()                                         { d.ht.freeze() }
-func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
+func (d *Dict) Truth() Bool                                     { return d.Len(NilThreadPlaceholder()) > 0 }
 func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
 
 func (x *Dict) Union(y *Dict) *Dict {
 	z := new(Dict)
-	z.ht.init(x.Len()) // a lower bound
-	z.ht.addAll(&x.ht) // can't fail
-	z.ht.addAll(&y.ht) // can't fail
+	z.ht.init(x.Len(NilThreadPlaceholder())) // a lower bound
+	z.ht.addAll(&x.ht)                       // can't fail
+	z.ht.addAll(&y.ht)                       // can't fail
 	return z
 }
 
@@ -907,7 +908,7 @@ func (x *Dict) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, erro
 }
 
 func dictsEqual(x, y *Dict, depth int) (bool, error) {
-	if x.Len() != y.Len() {
+	if x.Len(NilThreadPlaceholder()) != y.Len(NilThreadPlaceholder()) {
 		return false, nil
 	}
 	for e := x.ht.head; e != nil; e = e.next {
@@ -957,12 +958,12 @@ func (l *List) checkMutable(verb string) error {
 	return nil
 }
 
-func (l *List) String() string        { return toString(l) }
-func (l *List) Type() string          { return "list" }
-func (l *List) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: list") }
-func (l *List) Truth() Bool           { return l.Len() > 0 }
-func (l *List) Len() int              { return len(l.elems) }
-func (l *List) Index(i int) Value     { return l.elems[i] }
+func (l *List) String() string         { return toString(l) }
+func (l *List) Type() string           { return "list" }
+func (l *List) Hash() (uint32, error)  { return 0, fmt.Errorf("unhashable type: list") }
+func (l *List) Truth() Bool            { return l.Len(NilThreadPlaceholder()) > 0 }
+func (l *List) Len(thread *Thread) int { return len(l.elems) }
+func (l *List) Index(i int) Value      { return l.elems[i] }
 
 func (l *List) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1026,7 +1027,7 @@ type listIterator struct {
 }
 
 func (it *listIterator) Next(p *Value) bool {
-	if it.i < it.l.Len() {
+	if it.i < it.l.Len(NilThreadPlaceholder()) {
 		*p = it.l.elems[it.i]
 		it.i++
 		return true
@@ -1073,8 +1074,8 @@ func (l *List) Clear(thread *Thread) error {
 // A Tuple represents a Starlark tuple value.
 type Tuple []Value
 
-func (t Tuple) Len() int          { return len(t) }
-func (t Tuple) Index(i int) Value { return t[i] }
+func (t Tuple) Len(thread *Thread) int { return len(t) }
+func (t Tuple) Index(i int) Value      { return t[i] }
 
 func (t Tuple) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1152,13 +1153,13 @@ func (s *Set) Delete(k Value) (found bool, err error) { _, found, err = s.ht.del
 func (s *Set) Clear() error                           { return s.ht.clear() }
 func (s *Set) Has(k Value) (found bool, err error)    { _, found, err = s.ht.lookup(k); return }
 func (s *Set) Insert(k Value) error                   { return s.ht.insert(k, None) }
-func (s *Set) Len() int                               { return int(s.ht.len) }
+func (s *Set) Len(thread *Thread) int                 { return int(s.ht.len) }
 func (s *Set) Iterate() Iterator                      { return s.ht.iterate() }
 func (s *Set) String() string                         { return toString(s) }
 func (s *Set) Type() string                           { return "set" }
 func (s *Set) Freeze()                                { s.ht.freeze() }
 func (s *Set) Hash() (uint32, error)                  { return 0, fmt.Errorf("unhashable type: set") }
-func (s *Set) Truth() Bool                            { return s.Len() > 0 }
+func (s *Set) Truth() Bool                            { return s.Len(NilThreadPlaceholder()) > 0 }
 
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
@@ -1173,28 +1174,28 @@ func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error
 		ok, err := setsEqual(x, y, depth)
 		return !ok, err
 	case syntax.GE: // superset
-		if x.Len() < y.Len() {
+		if x.Len(NilThreadPlaceholder()) < y.Len(NilThreadPlaceholder()) {
 			return false, nil
 		}
 		iter := y.Iterate()
 		defer iter.Done()
 		return x.IsSuperset(iter)
 	case syntax.LE: // subset
-		if x.Len() > y.Len() {
+		if x.Len(NilThreadPlaceholder()) > y.Len(NilThreadPlaceholder()) {
 			return false, nil
 		}
 		iter := y.Iterate()
 		defer iter.Done()
 		return x.IsSubset(iter)
 	case syntax.GT: // proper superset
-		if x.Len() <= y.Len() {
+		if x.Len(NilThreadPlaceholder()) <= y.Len(NilThreadPlaceholder()) {
 			return false, nil
 		}
 		iter := y.Iterate()
 		defer iter.Done()
 		return x.IsSuperset(iter)
 	case syntax.LT: // proper subset
-		if x.Len() >= y.Len() {
+		if x.Len(NilThreadPlaceholder()) >= y.Len(NilThreadPlaceholder()) {
 			return false, nil
 		}
 		iter := y.Iterate()
@@ -1206,7 +1207,7 @@ func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error
 }
 
 func setsEqual(x, y *Set, depth int) (bool, error) {
-	if x.Len() != y.Len() {
+	if x.Len(NilThreadPlaceholder()) != y.Len(NilThreadPlaceholder()) {
 		return false, nil
 	}
 	for e := x.ht.head; e != nil; e = e.next {
@@ -1287,7 +1288,7 @@ func (s *Set) IsSubset(other Iterator) (bool, error) {
 	if count, err := s.ht.count(other); err != nil {
 		return false, err
 	} else {
-		return count == s.Len(), nil
+		return count == s.Len(NilThreadPlaceholder()), nil
 	}
 }
 
@@ -1588,11 +1589,11 @@ func b2i(b bool) int {
 func Len(x Value) int {
 	switch x := x.(type) {
 	case String:
-		return x.Len()
+		return x.Len(NilThreadPlaceholder())
 	case Indexable:
-		return x.Len()
+		return x.Len(NilThreadPlaceholder())
 	case Sequence:
-		return x.Len()
+		return x.Len(NilThreadPlaceholder())
 	}
 	return -1
 }
@@ -1631,13 +1632,13 @@ var (
 	_ Indexable  = Bytes("")
 )
 
-func (b Bytes) String() string        { return syntax.Quote(string(b), true) }
-func (b Bytes) Type() string          { return "bytes" }
-func (b Bytes) Freeze()               {} // immutable
-func (b Bytes) Truth() Bool           { return len(b) > 0 }
-func (b Bytes) Hash() (uint32, error) { return String(b).Hash() }
-func (b Bytes) Len() int              { return len(b) }
-func (b Bytes) Index(i int) Value     { return b[i : i+1] }
+func (b Bytes) String() string         { return syntax.Quote(string(b), true) }
+func (b Bytes) Type() string           { return "bytes" }
+func (b Bytes) Freeze()                {} // immutable
+func (b Bytes) Truth() Bool            { return len(b) > 0 }
+func (b Bytes) Hash() (uint32, error)  { return String(b).Hash() }
+func (b Bytes) Len(thread *Thread) int { return len(b) }
+func (b Bytes) Index(i int) Value      { return b[i : i+1] }
 
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }

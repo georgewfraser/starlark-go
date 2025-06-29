@@ -701,7 +701,7 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 		return z, nil
 
 	case Indexable: // string, list, tuple
-		n := x.Len()
+		n := x.Len(NilThreadPlaceholder())
 		i, err := AsInt32(y)
 		if err != nil {
 			return nil, fmt.Errorf("%s index: %s", x.Type(), err)
@@ -738,7 +738,7 @@ func setIndex(thread *Thread, x, y, z Value) error {
 		}
 
 	case HasSetIndex:
-		n := x.Len()
+		n := x.Len(NilThreadPlaceholder())
 		i, err := AsInt32(y)
 		if err != nil {
 			return err
@@ -815,7 +815,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *List:
 			if y, ok := y.(*List); ok {
-				z := make([]Value, 0, x.Len()+y.Len())
+				z := make([]Value, 0, x.Len(NilThreadPlaceholder())+y.Len(NilThreadPlaceholder()))
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
 				return NewList(z), nil
@@ -1318,7 +1318,7 @@ func slice(x, lo, hi, step_ Value) (Value, error) {
 		return nil, fmt.Errorf("invalid slice operand %s", x.Type())
 	}
 
-	n := sliceable.Len()
+	n := sliceable.Len(NilThreadPlaceholder())
 	step := 1
 	if step_ != None {
 		var err error
@@ -1521,9 +1521,9 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 		if kwdict == nil {
 			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
 		}
-		oldlen := kwdict.Len()
+		oldlen := kwdict.Len(NilThreadPlaceholder())
 		kwdict.SetKey(k, v)
-		if kwdict.Len() == oldlen {
+		if kwdict.Len(NilThreadPlaceholder()) == oldlen {
 			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
 		}
 	}
