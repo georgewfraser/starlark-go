@@ -1207,7 +1207,7 @@ func dict_get(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &key, &dflt); err != nil {
 		return nil, err
 	}
-	if v, ok, err := b.Receiver().(*Dict).Get(key); err != nil {
+	if v, ok, err := b.Receiver().(*Dict).Get(NilThreadPlaceholder(), key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil
@@ -1286,7 +1286,7 @@ func dict_setdefault(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 		return nil, err
 	}
 	dict := b.Receiver().(*Dict)
-	if v, ok, err := dict.Get(key); err != nil {
+	if v, ok, err := dict.Get(NilThreadPlaceholder(), key); err != nil {
 		return nil, nameErr(b, err)
 	} else if ok {
 		return v, nil

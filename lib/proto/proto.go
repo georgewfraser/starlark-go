@@ -447,7 +447,7 @@ func setField(msg protoreflect.Message, fdesc protoreflect.FieldDescriptor, valu
 			// iterator guarantees the presence of some value (even if it is
 			// starlark.None). Mismatching values will be caught in toProto
 			// below.
-			v, _, err := mapping.Get(k)
+			v, _, err := mapping.Get(starlark.NilThreadPlaceholder(), k)
 			if err != nil {
 				return fmt.Errorf("in map field %s, at key %s: %w", fdesc.Name(), k.String(), err)
 			}
@@ -1123,7 +1123,7 @@ func (mf *MapField) checkMutable(verb string) error {
 	return nil
 }
 
-func (mf *MapField) Get(k starlark.Value) (starlark.Value, bool, error) {
+func (mf *MapField) Get(thread *starlark.Thread, k starlark.Value) (starlark.Value, bool, error) {
 	if err := mf.checkKeyType(); err != nil {
 		return nil, false, err
 	}

@@ -105,7 +105,7 @@ func Entries(mapping IterableMapping) iter.Seq2[Value, Value] {
 		defer iter.Done()
 		var k Value
 		for iter.Next(&k) {
-			v, found, err := mapping.Get(k)
+			v, found, err := mapping.Get(NilThreadPlaceholder(), k)
 			if err != nil || !found {
 				panic(fmt.Sprintf("Iterate and Get are inconsistent (mapping=%v, key=%v)",
 					mapping.Type(), k.Type()))
