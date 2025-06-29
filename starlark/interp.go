@@ -732,11 +732,11 @@ func (e wrappedError) Unwrap() error {
 // to indicate that a (keyword-only) parameter is mandatory.
 type mandatory struct{}
 
-func (mandatory) String() string        { return "mandatory" }
-func (mandatory) Type() string          { return "mandatory" }
-func (mandatory) Freeze()               {} // immutable
-func (mandatory) Truth() Bool           { return False }
-func (mandatory) Hash() (uint32, error) { return 0, nil }
+func (mandatory) String(thread *Thread) string { return "mandatory" }
+func (mandatory) Type() string                 { return "mandatory" }
+func (mandatory) Freeze()                      {} // immutable
+func (mandatory) Truth() Bool                  { return False }
+func (mandatory) Hash() (uint32, error)        { return 0, nil }
 
 // A cell is a box containing a Value.
 // Local variables marked as cells hold their value indirectly
@@ -746,8 +746,8 @@ func (mandatory) Hash() (uint32, error) { return 0, nil }
 // The FREE instruction always yields a cell.
 type cell struct{ v Value }
 
-func (c *cell) String() string { return "cell" }
-func (c *cell) Type() string   { return "cell" }
+func (c *cell) String(thread *Thread) string { return "cell" }
+func (c *cell) Type() string                 { return "cell" }
 func (c *cell) Freeze() {
 	if c.v != nil {
 		c.v.Freeze()

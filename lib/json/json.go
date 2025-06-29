@@ -148,7 +148,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				return fmt.Errorf("cannot encode non-finite float %v", x)
 			}
 			// Float.String always contains a decimal point. (%g does not!)
-			buf.WriteString(x.String())
+			buf.WriteString(x.String(starlark.NilThreadPlaceholder()))
 
 		case starlark.String:
 			quote(string(x))

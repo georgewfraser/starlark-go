@@ -129,7 +129,7 @@ func (s *Struct) ToStringDict(d starlark.StringDict) {
 	}
 }
 
-func (s *Struct) String() string {
+func (s *Struct) String(thread *starlark.Thread) string {
 	buf := new(strings.Builder)
 	switch constructor := s.constructor.(type) {
 	case starlark.String:
@@ -137,7 +137,7 @@ func (s *Struct) String() string {
 		// even for Bazel provider instances.
 		buf.WriteString(constructor.GoString()) // avoid String()'s quotation
 	default:
-		buf.WriteString(s.constructor.String())
+		buf.WriteString(s.constructor.String(thread))
 	}
 	buf.WriteByte('(')
 	for i, e := range s.entries {
@@ -146,7 +146,7 @@ func (s *Struct) String() string {
 		}
 		buf.WriteString(e.name)
 		buf.WriteString(" = ")
-		buf.WriteString(e.value.String())
+		buf.WriteString(e.value.String(thread))
 	}
 	buf.WriteByte(')')
 	return buf.String()
@@ -229,7 +229,7 @@ func (s *Struct) Attr(name string) (starlark.Value, error) {
 
 	var ctor string
 	if s.constructor != Default {
-		ctor = s.constructor.String() + " "
+		ctor = s.constructor.String(starlark.NilThreadPlaceholder()) + " "
 	}
 	return nil, starlark.NoSuchAttrError(
 		fmt.Sprintf("%sstruct has no .%s attribute", ctor, name))

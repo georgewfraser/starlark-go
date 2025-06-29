@@ -891,7 +891,7 @@ func (r rangeValue) Slice(start, end, step int) Value {
 }
 
 func (r rangeValue) Freeze() {} // immutable
-func (r rangeValue) String() string {
+func (r rangeValue) String(thread *Thread) string {
 	if r.step != 1 {
 		return fmt.Sprintf("range(%d, %d, %d)", r.start, r.stop, r.step)
 	} else if r.start != 0 {
@@ -961,7 +961,7 @@ func repr(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs("repr", args, kwargs, 1, &x); err != nil {
 		return nil, err
 	}
-	return String(x.String()), nil
+	return String(x.String(thread)), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#reversed
@@ -1094,7 +1094,7 @@ func str(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		// Invalid encodings are replaced by that of U+FFFD.
 		return String(utf8Transcode(string(x))), nil
 	default:
-		return String(x.String()), nil
+		return String(x.String(thread)), nil
 	}
 }
 
@@ -1522,12 +1522,12 @@ type bytesIterable struct{ bytes Bytes }
 
 var _ Iterable = (*bytesIterable)(nil)
 
-func (bi bytesIterable) String() string        { return bi.bytes.String() + ".elems()" }
-func (bi bytesIterable) Type() string          { return "bytes.elems" }
-func (bi bytesIterable) Freeze()               {} // immutable
-func (bi bytesIterable) Truth() Bool           { return True }
-func (bi bytesIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", bi.Type()) }
-func (bi bytesIterable) Iterate() Iterator     { return &bytesIterator{bi.bytes} }
+func (bi bytesIterable) String(thread *Thread) string { return bi.bytes.String(thread) + ".elems()" }
+func (bi bytesIterable) Type() string                 { return "bytes.elems" }
+func (bi bytesIterable) Freeze()                      {} // immutable
+func (bi bytesIterable) Truth() Bool                  { return True }
+func (bi bytesIterable) Hash() (uint32, error)        { return 0, fmt.Errorf("unhashable: %s", bi.Type()) }
+func (bi bytesIterable) Iterate() Iterator            { return &bytesIterator{bi.bytes} }
 
 type bytesIterator struct{ bytes Bytes }
 

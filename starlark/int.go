@@ -170,7 +170,7 @@ func (i Int) Format(s fmt.State, ch rune) {
 	}
 	big.NewInt(iSmall).Format(s, ch)
 }
-func (i Int) String() string {
+func (i Int) String(thread *Thread) string {
 	iSmall, iBig := i.get()
 	if iBig != nil {
 		return iBig.Text(10)
