@@ -26,13 +26,14 @@ type ProgramStateDB struct {
 // The interpreter records these slices while executing a function body
 // and the cache uses them to detect invalidation when values change.
 type Dependencies struct {
-	globals []VariableValue
-	cells   []CellValue
-	lists   []ListVersion
-	dicts   []DictVersion
-	sets    []SetVersion
-	calls   []*Record
-	effects bool // true for builtin functions that have side effects that are not captured in the dependencies.
+	predeclared []PredeclaredValue
+	globals     []VariableValue
+	cells       []CellValue
+	lists       []ListVersion
+	dicts       []DictVersion
+	sets        []SetVersion
+	calls       []*Record
+	effects     bool // true for builtin functions that have side effects that are not captured in the dependencies.
 }
 
 // Record memoizes the result of a function call along with the values of
@@ -46,6 +47,13 @@ type Record struct {
 	deps     Dependencies
 	result   Interned
 	verified uint64 // ProgramStateDB.version when this record was last verified against dependencies, or 0 if it has been shown to be stale.
+}
+
+// PredeclaredValue records the value observed for a predeclared variable during execution.
+// Predeclared variables are immutable and looked up by name in the module's predeclared dictionary.
+type PredeclaredValue struct {
+	name  string
+	value Interned
 }
 
 // VariableValue records the value observed for a variable during execution of
@@ -163,6 +171,13 @@ func (db *ProgramStateDB) validate(rec *Record) bool {
 	}
 	if rec.verified == 0 {
 		return false
+	}
+	// predeclared
+	for _, p := range rec.deps.predeclared {
+		if !db.Intern(rec.function.module.predeclared[p.name]).Eq(p.value) {
+			rec.verified = 0
+			return false
+		}
 	}
 	// globals
 	for _, c := range rec.deps.globals {
