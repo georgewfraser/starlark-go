@@ -691,7 +691,7 @@ func setField(x Value, name string, y Value) error {
 func getIndex(thread *Thread, x, y Value) (Value, error) {
 	switch x := x.(type) {
 	case Mapping: // dict
-		z, found, err := x.Get(y)
+		z, found, err := x.Get(NilThreadPlaceholder(), y)
 		if err != nil {
 			return nil, err
 		}
@@ -1070,7 +1070,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 		case Mapping: // e.g. dict
 			// Ignore error from Get as we cannot distinguish true
 			// errors (value cycle, type error) from "key not found".
-			_, found, _ := y.Get(x)
+			_, found, _ := y.Get(NilThreadPlaceholder(), x)
 			return Bool(found), nil
 		case *Set:
 			ok, err := y.Has(x)
@@ -1604,7 +1604,7 @@ func interpolate(format string, x Value) (Value, error) {
 			key := format[:j]
 			if dict, ok := x.(Mapping); !ok {
 				return nil, fmt.Errorf("format requires a mapping")
-			} else if v, found, _ := dict.Get(String(key)); found {
+			} else if v, found, _ := dict.Get(NilThreadPlaceholder(), String(key)); found {
 				arg = v
 			} else {
 				return nil, fmt.Errorf("key not found: %s", key)

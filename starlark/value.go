@@ -292,7 +292,7 @@ type Mapping interface {
 	//
 	// Get also defines the behavior of "v in mapping".
 	// The 'in' operator reports the 'found' component, ignoring errors.
-	Get(Value) (v Value, found bool, err error)
+	Get(thread *Thread, k Value) (v Value, found bool, err error)
 }
 
 // An IterableMapping is a mapping that supports key enumeration.
@@ -869,17 +869,19 @@ func NewDict(size int) *Dict {
 
 func (d *Dict) Clear() error                                    { return d.ht.clear() }
 func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(k) }
-func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
-func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
-func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
-func (d *Dict) Len() int                                        { return int(d.ht.len) }
-func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
-func (d *Dict) SetKey(k, v Value) error                         { return d.ht.insert(k, v) }
-func (d *Dict) String() string                                  { return toString(d) }
-func (d *Dict) Type() string                                    { return "dict" }
-func (d *Dict) Freeze()                                         { d.ht.freeze() }
-func (d *Dict) Truth() Bool                                     { return d.Len() > 0 }
-func (d *Dict) Hash() (uint32, error)                           { return 0, fmt.Errorf("unhashable type: dict") }
+func (d *Dict) Get(thread *Thread, k Value) (v Value, found bool, err error) {
+	return d.ht.lookup(k)
+}
+func (d *Dict) Items() []Tuple          { return d.ht.items() }
+func (d *Dict) Keys() []Value           { return d.ht.keys() }
+func (d *Dict) Len() int                { return int(d.ht.len) }
+func (d *Dict) Iterate() Iterator       { return d.ht.iterate() }
+func (d *Dict) SetKey(k, v Value) error { return d.ht.insert(k, v) }
+func (d *Dict) String() string          { return toString(d) }
+func (d *Dict) Type() string            { return "dict" }
+func (d *Dict) Freeze()                 { d.ht.freeze() }
+func (d *Dict) Truth() Bool             { return d.Len() > 0 }
+func (d *Dict) Hash() (uint32, error)   { return 0, fmt.Errorf("unhashable type: dict") }
 
 func (x *Dict) Union(y *Dict) *Dict {
 	z := new(Dict)
@@ -913,7 +915,7 @@ func dictsEqual(x, y *Dict, depth int) (bool, error) {
 	for e := x.ht.head; e != nil; e = e.next {
 		key, xval := e.key, e.value
 
-		if yval, found, _ := y.Get(key); !found {
+		if yval, found, _ := y.Get(NilThreadPlaceholder(), key); !found {
 			return false, nil
 		} else if eq, err := EqualDepth(xval, yval, depth-1); err != nil {
 			return false, err
