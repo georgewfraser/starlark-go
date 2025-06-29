@@ -199,7 +199,7 @@ func all(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	if err := UnpackPositionalArgs("all", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
@@ -216,7 +216,7 @@ func any_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	if err := UnpackPositionalArgs("any", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	var x Value
 	for iter.Next(&x) {
@@ -257,7 +257,7 @@ func bytes_(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 			// common case: known length
 			buf.Grow(n)
 		}
-		iter := x.Iterate()
+		iter := x.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		var elem Value
 		var b byte
@@ -337,7 +337,7 @@ func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, e
 		return nil, err
 	}
 
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 
 	var pairs []Value
@@ -684,7 +684,7 @@ func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 	}
 	var elems []Value
 	if iterable != nil {
-		iter := iterable.Iterate()
+		iter := iterable.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		if n := Len(iterable); n > 0 {
 			elems = make([]Value, 0, n) // preallocate if length known
@@ -718,7 +718,7 @@ func minmax(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	} else {
 		iterable = args
 	}
-	iter := Iterate(iterable)
+	iter := Iterate(NilThreadPlaceholder(), iterable)
 	if iter == nil {
 		return nil, fmt.Errorf("%s: %s value is not iterable", b.Name(), iterable.Type())
 	}
@@ -856,9 +856,9 @@ var (
 	_ Sliceable  = rangeValue{}
 )
 
-func (r rangeValue) Len() int          { return r.len }
-func (r rangeValue) Index(i int) Value { return MakeInt(r.start + i*r.step) }
-func (r rangeValue) Iterate() Iterator { return &rangeIterator{r, 0} }
+func (r rangeValue) Len() int                        { return r.len }
+func (r rangeValue) Index(i int) Value               { return MakeInt(r.start + i*r.step) }
+func (r rangeValue) Iterate(thread *Thread) Iterator { return &rangeIterator{r, 0} }
 
 // rangeLen calculates the length of a range with the provided start, stop, and step.
 // caller must ensure that step is non-zero.
@@ -878,7 +878,7 @@ func rangeLen(start, stop, step int) int {
 	return 0
 }
 
-func (r rangeValue) Slice(start, end, step int) Value {
+func (r rangeValue) Slice(thread *Thread, start, end, step int) Value {
 	newStart := r.start + r.step*start
 	newStop := r.start + r.step*end
 	newStep := r.step * step
@@ -904,7 +904,7 @@ func (r rangeValue) Type() string          { return "range" }
 func (r rangeValue) Truth() Bool           { return r.len > 0 }
 func (r rangeValue) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: range") }
 
-func (x rangeValue) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x rangeValue) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(rangeValue)
 	switch op {
 	case syntax.EQL:
@@ -970,7 +970,7 @@ func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := UnpackPositionalArgs("reversed", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	var elems []Value
 	if n := Len(args[0]); n >= 0 {
@@ -995,7 +995,7 @@ func set(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	}
 	set := new(Set)
 	if iterable != nil {
-		iter := iterable.Iterate()
+		iter := iterable.Iterate(NilThreadPlaceholder())
 		defer iter.Done()
 		var x Value
 		for iter.Next(&x) {
@@ -1021,7 +1021,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 		return nil, err
 	}
 
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	var values []Value
 	if n := Len(iterable); n > 0 {
@@ -1121,7 +1121,7 @@ func tuple(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if len(args) == 0 {
 		return Tuple(nil), nil
 	}
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	var elems Tuple
 	if n := Len(iterable); n > 0 {
@@ -1160,7 +1160,7 @@ func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 		}
 	}()
 	for i, seq := range args {
-		it := Iterate(seq)
+		it := Iterate(NilThreadPlaceholder(), seq)
 		if it == nil {
 			return nil, fmt.Errorf("zip: argument #%d is not iterable: %s", i+1, seq.Type())
 		}
@@ -1522,12 +1522,12 @@ type bytesIterable struct{ bytes Bytes }
 
 var _ Iterable = (*bytesIterable)(nil)
 
-func (bi bytesIterable) String() string        { return bi.bytes.String() + ".elems()" }
-func (bi bytesIterable) Type() string          { return "bytes.elems" }
-func (bi bytesIterable) Freeze()               {} // immutable
-func (bi bytesIterable) Truth() Bool           { return True }
-func (bi bytesIterable) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", bi.Type()) }
-func (bi bytesIterable) Iterate() Iterator     { return &bytesIterator{bi.bytes} }
+func (bi bytesIterable) String() string                  { return bi.bytes.String() + ".elems()" }
+func (bi bytesIterable) Type() string                    { return "bytes.elems" }
+func (bi bytesIterable) Freeze()                         {} // immutable
+func (bi bytesIterable) Truth() Bool                     { return True }
+func (bi bytesIterable) Hash() (uint32, error)           { return 0, fmt.Errorf("unhashable: %s", bi.Type()) }
+func (bi bytesIterable) Iterate(thread *Thread) Iterator { return &bytesIterator{bi.bytes} }
 
 type bytesIterator struct{ bytes Bytes }
 
@@ -1859,7 +1859,7 @@ func string_join(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 1, &iterable); err != nil {
 		return nil, err
 	}
-	iter := iterable.Iterate()
+	iter := iterable.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	buf := new(strings.Builder)
 	var x Value
@@ -2234,7 +2234,7 @@ func set_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter := other.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).Difference(iter)
 	if err != nil {
@@ -2250,7 +2250,7 @@ func set_intersection(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value,
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter := other.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).Intersection(iter)
 	if err != nil {
@@ -2265,7 +2265,7 @@ func set_issubset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter := other.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).IsSubset(iter)
 	if err != nil {
@@ -2280,7 +2280,7 @@ func set_issuperset(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, e
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter := other.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).IsSuperset(iter)
 	if err != nil {
@@ -2349,7 +2349,7 @@ func set_symmetric_difference(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple)
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &other); err != nil {
 		return nil, err
 	}
-	iter := other.Iterate()
+	iter := other.Iterate(NilThreadPlaceholder())
 	defer iter.Done()
 	diff, err := b.Receiver().(*Set).SymmetricDifference(iter)
 	if err != nil {
@@ -2422,14 +2422,14 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 			}
 		default:
 			// all other sequences
-			iter := Iterate(updates)
+			iter := Iterate(NilThreadPlaceholder(), updates)
 			if iter == nil {
 				return fmt.Errorf("got %s, want iterable", updates.Type())
 			}
 			defer iter.Done()
 			var pair Value
 			for i := 0; iter.Next(&pair); i++ {
-				iter2 := Iterate(pair)
+				iter2 := Iterate(NilThreadPlaceholder(), pair)
 				if iter2 == nil {
 					return fmt.Errorf("dictionary update sequence element #%d is not iterable (%s)", i, pair.Type())
 
@@ -2485,7 +2485,7 @@ func setUpdate(s *Set, args Tuple, kwargs []Tuple) error {
 			return fmt.Errorf("argument #%d is not iterable: %s", i+1, arg.Type())
 		}
 		if err := func() error {
-			iter := iterable.Iterate()
+			iter := iterable.Iterate(NilThreadPlaceholder())
 			defer iter.Done()
 			return s.InsertAll(iter)
 		}(); err != nil {
