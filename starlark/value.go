@@ -136,7 +136,7 @@ type Comparable interface {
 	// Client code should not call this method.  Instead, use the
 	// standalone Compare or Equals functions, which are defined for
 	// all pairs of operands.
-	CompareSameType(op syntax.Token, y Value, depth int) (bool, error)
+	CompareSameType(thread *Thread, op syntax.Token, y Value, depth int) (bool, error)
 }
 
 // A TotallyOrdered is a type whose values form a total order:
@@ -413,7 +413,7 @@ func (b Bool) Type() string          { return "bool" }
 func (b Bool) Freeze()               {} // immutable
 func (b Bool) Truth() Bool           { return b }
 func (b Bool) Hash() (uint32, error) { return uint32(b2i(bool(b))), nil }
-func (x Bool) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x Bool) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(Bool)
 	return threeway(op, b2i(bool(x))-b2i(bool(y))), nil
 }
@@ -587,7 +587,7 @@ func (s String) Slice(thread *Thread, start, end, step int) Value {
 func (s String) Attr(name string) (Value, error) { return builtinAttr(s, name, stringMethods) }
 func (s String) AttrNames() []string             { return builtinAttrNames(stringMethods) }
 
-func (x String) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x String) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(String)
 	return threeway(op, strings.Compare(string(x), string(y))), nil
 }
@@ -892,7 +892,7 @@ func (x *Dict) Union(y *Dict) *Dict {
 func (d *Dict) Attr(name string) (Value, error) { return builtinAttr(d, name, dictMethods) }
 func (d *Dict) AttrNames() []string             { return builtinAttrNames(dictMethods) }
 
-func (x *Dict) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x *Dict) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*Dict)
 	switch op {
 	case syntax.EQL:
@@ -988,7 +988,7 @@ func (l *List) Iterate(thread *Thread) Iterator {
 	return &listIterator{l: l}
 }
 
-func (x *List) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x *List) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*List)
 	// It's tempting to check x == y as an optimization here,
 	// but wrong because a list containing NaN is not equal to itself.
@@ -1100,7 +1100,7 @@ func (t Tuple) String() string { return toString(t) }
 func (t Tuple) Type() string   { return "tuple" }
 func (t Tuple) Truth() Bool    { return len(t) > 0 }
 
-func (x Tuple) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x Tuple) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(Tuple)
 	return sliceCompare(op, x, y, depth)
 }
@@ -1163,7 +1163,7 @@ func (s *Set) Truth() Bool                            { return s.Len() > 0 }
 func (s *Set) Attr(name string) (Value, error) { return builtinAttr(s, name, setMethods) }
 func (s *Set) AttrNames() []string             { return builtinAttrNames(setMethods) }
 
-func (x *Set) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x *Set) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*Set)
 	switch op {
 	case syntax.EQL:
@@ -1483,7 +1483,7 @@ func CompareDepth(op syntax.Token, x, y Value, depth int) (bool, error) {
 	}
 	if sameType(x, y) {
 		if xcomp, ok := x.(Comparable); ok {
-			return xcomp.CompareSameType(op, y, depth)
+			return xcomp.CompareSameType(NilThreadPlaceholder(), op, y, depth)
 		}
 
 		if xcomp, ok := x.(TotallyOrdered); ok {
@@ -1655,7 +1655,7 @@ func (b Bytes) Slice(thread *Thread, start, end, step int) Value {
 	return Bytes(str)
 }
 
-func (x Bytes) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x Bytes) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(Bytes)
 	return threeway(op, strings.Compare(string(x), string(y))), nil
 }
