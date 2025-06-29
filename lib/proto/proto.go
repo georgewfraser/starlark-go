@@ -356,7 +356,7 @@ func (d MessageDescriptor) CallInternal(thread *starlark.Thread, args starlark.T
 			return dest, nil
 
 		case *starlark.Dict:
-			kwargs = src.Items()
+			kwargs = src.Items(starlark.NilThreadPlaceholder())
 			// fall through
 
 		default:
@@ -404,7 +404,7 @@ func setField(msg protoreflect.Message, fdesc protoreflect.FieldDescriptor, valu
 	//  x = []; msg.x = x; y = msg.x
 	// causes x and y not to alias.
 	if fdesc.IsList() {
-		iter := starlark.Iterate(value)
+		iter := starlark.Iterate(starlark.NilThreadPlaceholder(), value)
 		if iter == nil {
 			return fmt.Errorf("got %s for .%s field, want iterable", value.Type(), fdesc.Name())
 		}
@@ -429,7 +429,7 @@ func setField(msg protoreflect.Message, fdesc protoreflect.FieldDescriptor, valu
 			return fmt.Errorf("in map field %s: expected mappable type, but got %s", fdesc.Name(), value.Type())
 		}
 
-		iter := mapping.Iterate()
+		iter := mapping.Iterate(starlark.NilThreadPlaceholder())
 		defer iter.Done()
 
 		// Each value is converted using toProto as usual, passing the key/value
@@ -582,7 +582,7 @@ func toProto(fdesc protoreflect.FieldDescriptor, v starlark.Value) (protoreflect
 
 		case *starlark.Dict:
 			dest := newMessage(desc)
-			err := setFields(dest, v.Items())
+			err := setFields(dest, v.Items(starlark.NilThreadPlaceholder()))
 			return protoreflect.ValueOfMessage(dest), err
 		}
 
@@ -1013,7 +1013,7 @@ func (rf *RepeatedField) Hash() (uint32, error) { return 0, fmt.Errorf("unhashab
 func (rf *RepeatedField) Index(i int) starlark.Value {
 	return toStarlark1(rf.typ, rf.list.Get(i), rf.frozen)
 }
-func (rf *RepeatedField) Iterate() starlark.Iterator {
+func (rf *RepeatedField) Iterate(thread *starlark.Thread) starlark.Iterator {
 	if !*rf.frozen {
 		rf.itercount++
 	}
@@ -1090,7 +1090,7 @@ func (mf *MapField) checkKeyType() error {
 	}
 }
 
-func (mf *MapField) SetKey(k, v starlark.Value) error {
+func (mf *MapField) SetKey(thread *starlark.Thread, k, v starlark.Value) error {
 	if err := mf.checkKeyType(); err != nil {
 		return err
 	}
@@ -1143,7 +1143,7 @@ func (mf *MapField) Get(thread *starlark.Thread, k starlark.Value) (starlark.Val
 func (mf *MapField) Freeze()               { *mf.frozen = true }
 func (mf *MapField) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", mf.Type()) }
 
-func (mf *MapField) Iterate() starlark.Iterator {
+func (mf *MapField) Iterate(thread *starlark.Thread) starlark.Iterator {
 	if !*mf.frozen {
 		mf.itercount++
 	}
@@ -1162,7 +1162,7 @@ func (mf *MapField) Iterate() starlark.Iterator {
 }
 
 // Items returns a slice of key-value pairs, sorted in key order.
-func (mf *MapField) Items() []starlark.Tuple {
+func (mf *MapField) Items(thread *starlark.Thread) []starlark.Tuple {
 	out := make([]starlark.Tuple, 0, mf.mp.Len())
 	array := make([]starlark.Value, 2*mf.mp.Len()) // allocate a single backing array
 
@@ -1197,7 +1197,7 @@ func (mf *MapField) String() string {
 	buf := new(strings.Builder)
 	buf.WriteByte('{')
 
-	for i, kv := range mf.Items() {
+	for i, kv := range mf.Items(starlark.NilThreadPlaceholder()) {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
@@ -1522,7 +1522,7 @@ func (e EnumValueDescriptor) Attr(name string) (starlark.Value, error) {
 	}
 	return nil, nil
 }
-func (x EnumValueDescriptor) CompareSameType(op syntax.Token, y_ starlark.Value, depth int) (bool, error) {
+func (x EnumValueDescriptor) CompareSameType(thread *starlark.Thread, op syntax.Token, y_ starlark.Value, depth int) (bool, error) {
 	y := y_.(EnumValueDescriptor)
 	switch op {
 	case syntax.EQL:

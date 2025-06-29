@@ -246,7 +246,7 @@ func (s *Struct) AttrNames() []string {
 	return names
 }
 
-func (x *Struct) CompareSameType(op syntax.Token, y_ starlark.Value, depth int) (bool, error) {
+func (x *Struct) CompareSameType(thread *starlark.Thread, op syntax.Token, y_ starlark.Value, depth int) (bool, error) {
 	y := y_.(*Struct)
 	switch op {
 	case syntax.EQL:

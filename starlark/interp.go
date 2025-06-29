@@ -333,7 +333,7 @@ loop:
 					err = fmt.Errorf("argument after ** must be a mapping, not %s", kwargs.Type())
 					break loop
 				}
-				items := dict.Items()
+				items := dict.Items(NilThreadPlaceholder())
 				for _, item := range items {
 					if _, ok := item[0].(String); !ok {
 						err = fmt.Errorf("keywords must be strings, not %s", item[0].Type())
@@ -362,7 +362,7 @@ loop:
 			}
 			if args != nil {
 				// Add elements from *args sequence.
-				iter := Iterate(args)
+				iter := Iterate(NilThreadPlaceholder(), args)
 				if iter == nil {
 					err = fmt.Errorf("argument after * must be iterable, not %s", args.Type())
 					break loop
@@ -396,7 +396,7 @@ loop:
 		case compile.ITERPUSH:
 			x := stack[sp-1]
 			sp--
-			iter := Iterate(x)
+			iter := Iterate(NilThreadPlaceholder(), x)
 			if iter == nil {
 				err = fmt.Errorf("%s value is not iterable", x.Type())
 				break loop
@@ -475,7 +475,7 @@ loop:
 			v := stack[sp-1]
 			sp -= 3
 			oldlen := dict.Len()
-			if err2 := dict.SetKey(k, v); err2 != nil {
+			if err2 := dict.SetKey(NilThreadPlaceholder(), k, v); err2 != nil {
 				err = err2
 				break loop
 			}
@@ -510,7 +510,7 @@ loop:
 			n := int(arg)
 			iterable := stack[sp-1]
 			sp--
-			iter := Iterate(iterable)
+			iter := Iterate(NilThreadPlaceholder(), iterable)
 			if iter == nil {
 				err = fmt.Errorf("got %s in sequence assignment", iterable.Type())
 				break loop
