@@ -878,7 +878,7 @@ func rangeLen(start, stop, step int) int {
 	return 0
 }
 
-func (r rangeValue) Slice(start, end, step int) Value {
+func (r rangeValue) Slice(thread *Thread, start, end, step int) Value {
 	newStart := r.start + r.step*start
 	newStop := r.start + r.step*end
 	newStep := r.step * step
