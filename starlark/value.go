@@ -234,7 +234,7 @@ type Sliceable interface {
 	// For negative strides (step < 0), -1 <= end <= start < n.
 	// The caller must ensure that the start and end indices are valid
 	// and that step is non-zero.
-	Slice(start, end, step int) Value
+	Slice(thread *Thread, start, end, step int) Value
 }
 
 // A HasSetIndex is an Indexable value whose elements may be assigned (x[i] = y).
@@ -571,7 +571,7 @@ func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
 func (s String) Len() int              { return len(s) } // bytes
 func (s String) Index(i int) Value     { return s[i : i+1] }
 
-func (s String) Slice(start, end, step int) Value {
+func (s String) Slice(thread *Thread, start, end, step int) Value {
 	if step == 1 {
 		return s[start:end]
 	}
@@ -964,7 +964,7 @@ func (l *List) Truth() Bool           { return l.Len() > 0 }
 func (l *List) Len() int              { return len(l.elems) }
 func (l *List) Index(i int) Value     { return l.elems[i] }
 
-func (l *List) Slice(start, end, step int) Value {
+func (l *List) Slice(thread *Thread, start, end, step int) Value {
 	if step == 1 {
 		elems := append([]Value{}, l.elems[start:end]...)
 		return NewList(elems)
@@ -1076,7 +1076,7 @@ type Tuple []Value
 func (t Tuple) Len() int          { return len(t) }
 func (t Tuple) Index(i int) Value { return t[i] }
 
-func (t Tuple) Slice(start, end, step int) Value {
+func (t Tuple) Slice(thread *Thread, start, end, step int) Value {
 	if step == 1 {
 		return t[start:end]
 	}
@@ -1642,7 +1642,7 @@ func (b Bytes) Index(i int) Value     { return b[i : i+1] }
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
 
-func (b Bytes) Slice(start, end, step int) Value {
+func (b Bytes) Slice(thread *Thread, start, end, step int) Value {
 	if step == 1 {
 		return b[start:end]
 	}

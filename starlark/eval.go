@@ -1372,7 +1372,7 @@ func slice(x, lo, hi, step_ Value) (Value, error) {
 		}
 	}
 
-	return sliceable.Slice(start, end, step), nil
+	return sliceable.Slice(NilThreadPlaceholder(), start, end, step), nil
 }
 
 // From Hacker's Delight, section 2.8.
