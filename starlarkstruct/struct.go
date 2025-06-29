@@ -189,10 +189,10 @@ func (x *Struct) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (
 
 		if eq, err := starlark.Equal(x.constructor, y.constructor); err != nil {
 			return nil, fmt.Errorf("in %s + %s: error comparing constructors: %v",
-				x.constructor, y.constructor, err)
+				x.constructor.String(starlark.NilThreadPlaceholder()), y.constructor.String(starlark.NilThreadPlaceholder()), err)
 		} else if !eq {
 			return nil, fmt.Errorf("cannot add structs of different constructors: %s + %s",
-				x.constructor, y.constructor)
+				x.constructor.String(starlark.NilThreadPlaceholder()), y.constructor.String(starlark.NilThreadPlaceholder()))
 		}
 
 		z := make(starlark.StringDict, x.len()+y.len())

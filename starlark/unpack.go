@@ -134,7 +134,7 @@ kwloop:
 				// found it
 				if defined.set(i) {
 					return fmt.Errorf("%s: got multiple values for keyword argument %s",
-						fnname, name)
+						fnname, name.String(NilThreadPlaceholder()))
 				}
 
 				if skipNone {
@@ -145,12 +145,12 @@ kwloop:
 
 				ptr := pairs[2*i+1]
 				if err := UnpackArg(arg, ptr); err != nil {
-					return fmt.Errorf("%s: for parameter %s: %s", fnname, name, err)
+					return fmt.Errorf("%s: for parameter %s: %s", fnname, name.String(NilThreadPlaceholder()), err)
 				}
 				continue kwloop
 			}
 		}
-		err := fmt.Errorf("%s: unexpected keyword argument %s", fnname, name)
+		err := fmt.Errorf("%s: unexpected keyword argument %s", fnname, name.String(NilThreadPlaceholder()))
 		names := make([]string, 0, nparams)
 		for i := 0; i < nparams; i += 2 {
 			param, _ := paramName(pairs[i])

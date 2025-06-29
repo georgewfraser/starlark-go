@@ -696,7 +696,7 @@ func getIndex(thread *Thread, x, y Value) (Value, error) {
 			return nil, err
 		}
 		if !found {
-			return nil, fmt.Errorf("key %v not in %s", y, x.Type())
+			return nil, fmt.Errorf("key %s not in %s", y.String(thread), x.Type())
 		}
 		return z, nil
 
@@ -1513,18 +1513,18 @@ func setArgs(locals []Value, fn *Function, args Tuple, kwargs []Tuple) error {
 		k, v := pair[0].(String), pair[1]
 		if i := findParam(paramIdents, string(k)); i >= 0 {
 			if locals[i] != nil {
-				return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
+				return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k.String(NilThreadPlaceholder()))
 			}
 			locals[i] = v
 			continue
 		}
 		if kwdict == nil {
-			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k)
+			return fmt.Errorf("function %s got an unexpected keyword argument %s", fn.Name(), k.String(NilThreadPlaceholder()))
 		}
 		oldlen := kwdict.Len()
 		kwdict.SetKey(k, v)
 		if kwdict.Len() == oldlen {
-			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k)
+			return fmt.Errorf("function %s got multiple values for parameter %s", fn.Name(), k.String(NilThreadPlaceholder()))
 		}
 	}
 

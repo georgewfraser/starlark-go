@@ -105,7 +105,7 @@ func TestEvalExpr(t *testing.T) {
 		if v, err := starlark.Eval(thread, "<expr>", test.src, nil); err != nil {
 			got = err.Error()
 		} else {
-			got = v.String()
+			got = v.String(starlark.NilThreadPlaceholder())
 		}
 		if got != test.want {
 			t.Errorf("eval %s = %s, want %s", test.src, got, test.want)
@@ -197,12 +197,12 @@ func TestExecFile(t *testing.T) {
 // A fib is an iterable value representing the infinite Fibonacci sequence.
 type fib struct{}
 
-func (t fib) Freeze()                    {}
-func (t fib) String() string             { return "fib" }
-func (t fib) Type() string               { return "fib" }
-func (t fib) Truth() starlark.Bool       { return true }
-func (t fib) Hash() (uint32, error)      { return 0, fmt.Errorf("fib is unhashable") }
-func (t fib) Iterate() starlark.Iterator { return &fibIterator{0, 1} }
+func (t fib) Freeze()                               {}
+func (t fib) String(thread *starlark.Thread) string { return "fib" }
+func (t fib) Type() string                          { return "fib" }
+func (t fib) Truth() starlark.Bool                  { return true }
+func (t fib) Hash() (uint32, error)                 { return 0, fmt.Errorf("fib is unhashable") }
+func (t fib) Iterate() starlark.Iterator            { return &fibIterator{0, 1} }
 
 type fibIterator struct{ x, y int }
 
@@ -257,10 +257,10 @@ var (
 	_ starlark.HasBinary = (*hasfields)(nil)
 )
 
-func (hf *hasfields) String() string        { return "hasfields" }
-func (hf *hasfields) Type() string          { return "hasfields" }
-func (hf *hasfields) Truth() starlark.Bool  { return true }
-func (hf *hasfields) Hash() (uint32, error) { return 42, nil }
+func (hf *hasfields) String(thread *starlark.Thread) string { return "hasfields" }
+func (hf *hasfields) Type() string                          { return "hasfields" }
+func (hf *hasfields) Truth() starlark.Bool                  { return true }
+func (hf *hasfields) Hash() (uint32, error)                 { return 42, nil }
 
 func (hf *hasfields) Freeze() {
 	if !hf.frozen {
@@ -316,7 +316,9 @@ type sneaky struct{ count int }
 
 var _ starlark.Callable = (*sneaky)(nil)
 
-func (s *sneaky) String() string        { return fmt.Sprintf("sneaky(%d)", s.count) }
+func (s *sneaky) String(thread *starlark.Thread) string {
+	return fmt.Sprintf("sneaky(%d)", s.count)
+}
 func (s *sneaky) Type() string          { return "sneaky" }
 func (s *sneaky) Freeze()               {}
 func (s *sneaky) Truth() starlark.Bool  { return true }
@@ -478,7 +480,7 @@ def j(a, b=42, *args, c, d=123, e, **kwargs):
 		if v, err := starlark.Eval(thread, "<expr>", test.src, globals); err != nil {
 			got = err.Error()
 		} else {
-			got = v.String()
+			got = v.String(starlark.NilThreadPlaceholder())
 		}
 		if got != test.want {
 			t.Errorf("eval %s = %s, want %s", test.src, got, test.want)
@@ -912,11 +914,11 @@ g(z=7)
 
 type badType string
 
-func (b *badType) String() string        { return "badType" }
-func (b *badType) Type() string          { return "badType:" + string(*b) } // panics if b==nil
-func (b *badType) Truth() starlark.Bool  { return true }
-func (b *badType) Hash() (uint32, error) { return 0, nil }
-func (b *badType) Freeze()               {}
+func (b *badType) String(thread *starlark.Thread) string { return "badType" }
+func (b *badType) Type() string                          { return "badType:" + string(*b) } // panics if b==nil
+func (b *badType) Truth() starlark.Bool                  { return true }
+func (b *badType) Hash() (uint32, error)                 { return 0, nil }
+func (b *badType) Freeze()                               {}
 
 var _ starlark.Value = new(badType)
 
@@ -992,7 +994,7 @@ func TestCancel(t *testing.T) {
 			}),
 		}
 		_, err := starlark.ExecFile(thread, "stopit.star", `msg = 'nope'; stopit(msg); x = 1//0`, predeclared)
-		if fmt.Sprint(err) != `Starlark computation cancelled: "nope"` {
+		if fmt.Sprint(err) != "Starlark computation cancelled: nope" {
 			t.Errorf("execution returned error %q, want cancellation", err)
 		}
 	}
@@ -1151,7 +1153,7 @@ f(1)
 	if err != nil {
 		t.Fatalf("ExecFile returned error %q, expected panic", err)
 	}
-	got := m["e"].(*starlark.List).Index(0).String()
+	got := m["e"].(*starlark.List).Index(0).String(starlark.NilThreadPlaceholder())
 	want := `{"q": 2, "inner": 4, "outer": 3}`
 	if got != want {
 		t.Errorf("env() returned %s, want %s", got, want)

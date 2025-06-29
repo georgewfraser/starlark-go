@@ -109,7 +109,7 @@ func TestDictEntries(t *testing.T) {
 			break // skip 3
 		}
 	}
-	want := []string{`"one" 1`, `"two" 2`, `"one" 1`, `"two" 2`}
+	want := []string{`one 1`, `two 2`, `one 1`, `two 2`}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}

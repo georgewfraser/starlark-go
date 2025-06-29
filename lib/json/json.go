@@ -145,7 +145,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 
 		case starlark.Float:
 			if !isFinite(float64(x)) {
-				return fmt.Errorf("cannot encode non-finite float %v", x)
+				return fmt.Errorf("cannot encode non-finite float %s", x.String(starlark.NilThreadPlaceholder()))
 			}
 			// Float.String always contains a decimal point. (%g does not!)
 			buf.WriteString(x.String(starlark.NilThreadPlaceholder()))
@@ -173,7 +173,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				quote(k)
 				buf.WriteByte(':')
 				if err := emit(item[1]); err != nil {
-					return fmt.Errorf("in %s key %s: %v", x.Type(), item[0], err)
+					return fmt.Errorf("in %s key %s: %v", x.Type(), item[0].(starlark.Value).String(starlark.NilThreadPlaceholder()), err)
 				}
 			}
 			buf.WriteByte('}')

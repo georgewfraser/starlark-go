@@ -480,7 +480,7 @@ loop:
 				break loop
 			}
 			if op == compile.SETDICTUNIQ && dict.Len() == oldlen {
-				err = fmt.Errorf("duplicate key: %v", k)
+				err = fmt.Errorf("duplicate key: %s", k.String(thread))
 				break loop
 			}
 

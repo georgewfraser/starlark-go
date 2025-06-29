@@ -2465,7 +2465,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 		for _, kv := range kwargs {
 			k := kv[0].(String)
 			if keys[k] {
-				return fmt.Errorf("duplicate keyword arg: %v", k)
+				return fmt.Errorf("duplicate keyword arg: %s", k.String(NilThreadPlaceholder()))
 			}
 			keys[k] = true
 		}

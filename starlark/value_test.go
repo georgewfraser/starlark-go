@@ -18,11 +18,11 @@ func TestStringMethod(t *testing.T) {
 	s := starlark.String("hello")
 	for i, test := range [][2]string{
 		// quoted string:
-		{s.String(), `"hello"`},
-		{fmt.Sprintf("%s", s), `"hello"`},
-		{fmt.Sprintf("%+s", s), `"hello"`},
-		{fmt.Sprintf("%v", s), `"hello"`},
-		{fmt.Sprintf("%+v", s), `"hello"`},
+		{s.String(starlark.NilThreadPlaceholder()), `"hello"`},
+		{fmt.Sprintf("%s", s), `hello`},
+		{fmt.Sprintf("%+s", s), `hello`},
+		{fmt.Sprintf("%v", s), `hello`},
+		{fmt.Sprintf("%+v", s), `hello`},
 		// unquoted:
 		{s.GoString(), `hello`},
 		{fmt.Sprintf("%#v", s), `hello`},

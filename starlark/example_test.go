@@ -64,7 +64,7 @@ squares = [x*x for x in range(10)]
 	fmt.Println("\nGlobals:")
 	for _, name := range globals.Keys() {
 		v := globals[name]
-		fmt.Printf("%s (%s) = %s\n", name, v.Type(), v.String())
+		fmt.Printf("%s (%s) = %s\n", name, v.Type(), v.String(starlark.NilThreadPlaceholder()))
 	}
 
 	// Output:
@@ -120,7 +120,7 @@ func ExampleThread_Load_sequential() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(globals["c"])
+	fmt.Println(globals["c"].String(starlark.NilThreadPlaceholder()))
 
 	// Output:
 	// "Hello, world!"
