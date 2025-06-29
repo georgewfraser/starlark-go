@@ -80,6 +80,9 @@ import (
 	"go.starlark.net/syntax"
 )
 
+// Use this as a placeholder when a thread is not available at a call site.
+func NilThreadPlaceholder() *Thread { return nil }
+
 // Value is a value in the Starlark interpreter.
 type Value interface {
 	// String returns the string representation of the value.
