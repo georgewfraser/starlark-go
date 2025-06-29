@@ -904,7 +904,7 @@ func (r rangeValue) Type() string          { return "range" }
 func (r rangeValue) Truth() Bool           { return r.len > 0 }
 func (r rangeValue) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: range") }
 
-func (x rangeValue) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
+func (x rangeValue) CompareSameType(thread *Thread, op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(rangeValue)
 	switch op {
 	case syntax.EQL:

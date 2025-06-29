@@ -1522,7 +1522,7 @@ func (e EnumValueDescriptor) Attr(name string) (starlark.Value, error) {
 	}
 	return nil, nil
 }
-func (x EnumValueDescriptor) CompareSameType(op syntax.Token, y_ starlark.Value, depth int) (bool, error) {
+func (x EnumValueDescriptor) CompareSameType(thread *starlark.Thread, op syntax.Token, y_ starlark.Value, depth int) (bool, error) {
 	y := y_.(EnumValueDescriptor)
 	switch op {
 	case syntax.EQL:
