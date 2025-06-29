@@ -333,7 +333,7 @@ loop:
 					err = fmt.Errorf("argument after ** must be a mapping, not %s", kwargs.Type())
 					break loop
 				}
-				items := dict.Items()
+				items := dict.Items(NilThreadPlaceholder())
 				for _, item := range items {
 					if _, ok := item[0].(String); !ok {
 						err = fmt.Errorf("keywords must be strings, not %s", item[0].Type())

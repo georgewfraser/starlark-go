@@ -356,7 +356,7 @@ func (d MessageDescriptor) CallInternal(thread *starlark.Thread, args starlark.T
 			return dest, nil
 
 		case *starlark.Dict:
-			kwargs = src.Items()
+			kwargs = src.Items(starlark.NilThreadPlaceholder())
 			// fall through
 
 		default:
@@ -582,7 +582,7 @@ func toProto(fdesc protoreflect.FieldDescriptor, v starlark.Value) (protoreflect
 
 		case *starlark.Dict:
 			dest := newMessage(desc)
-			err := setFields(dest, v.Items())
+			err := setFields(dest, v.Items(starlark.NilThreadPlaceholder()))
 			return protoreflect.ValueOfMessage(dest), err
 		}
 
@@ -1162,7 +1162,7 @@ func (mf *MapField) Iterate() starlark.Iterator {
 }
 
 // Items returns a slice of key-value pairs, sorted in key order.
-func (mf *MapField) Items() []starlark.Tuple {
+func (mf *MapField) Items(thread *starlark.Thread) []starlark.Tuple {
 	out := make([]starlark.Tuple, 0, mf.mp.Len())
 	array := make([]starlark.Value, 2*mf.mp.Len()) // allocate a single backing array
 
@@ -1197,7 +1197,7 @@ func (mf *MapField) String() string {
 	buf := new(strings.Builder)
 	buf.WriteByte('{')
 
-	for i, kv := range mf.Items() {
+	for i, kv := range mf.Items(starlark.NilThreadPlaceholder()) {
 		if i > 0 {
 			buf.WriteString(", ")
 		}

@@ -1230,7 +1230,7 @@ func dict_items(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	items := b.Receiver().(*Dict).Items()
+	items := b.Receiver().(*Dict).Items(NilThreadPlaceholder())
 	res := make([]Value, len(items))
 	for i, item := range items {
 		res[i] = item // convert [2]Value to Value
@@ -1313,7 +1313,7 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	items := b.Receiver().(*Dict).Items()
+	items := b.Receiver().(*Dict).Items(NilThreadPlaceholder())
 	res := make([]Value, len(items))
 	for i, item := range items {
 		res[i] = item[1]
@@ -2415,7 +2415,7 @@ func updateDict(dict *Dict, updates Tuple, kwargs []Tuple) error {
 		switch updates := updates[0].(type) {
 		case IterableMapping:
 			// Iterate over dict's key/value pairs, not just keys.
-			for _, item := range updates.Items() {
+			for _, item := range updates.Items(NilThreadPlaceholder()) {
 				if err := dict.SetKey(item[0], item[1]); err != nil {
 					return err // dict is frozen
 				}

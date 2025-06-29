@@ -300,8 +300,8 @@ type Mapping interface {
 // See [Entries] for example use.
 type IterableMapping interface {
 	Mapping
-	Iterate() Iterator // see Iterable interface
-	Items() []Tuple    // a new slice containing all key/value pairs
+	Iterate() Iterator            // see Iterable interface
+	Items(thread *Thread) []Tuple // a new slice containing all key/value pairs
 }
 
 var _ IterableMapping = (*Dict)(nil)
@@ -870,7 +870,7 @@ func NewDict(size int) *Dict {
 func (d *Dict) Clear() error                                    { return d.ht.clear() }
 func (d *Dict) Delete(k Value) (v Value, found bool, err error) { return d.ht.delete(k) }
 func (d *Dict) Get(k Value) (v Value, found bool, err error)    { return d.ht.lookup(k) }
-func (d *Dict) Items() []Tuple                                  { return d.ht.items() }
+func (d *Dict) Items(thread *Thread) []Tuple                    { return d.ht.items() }
 func (d *Dict) Keys() []Value                                   { return d.ht.keys() }
 func (d *Dict) Len() int                                        { return int(d.ht.len) }
 func (d *Dict) Iterate() Iterator                               { return d.ht.iterate() }
