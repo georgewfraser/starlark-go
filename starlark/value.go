@@ -220,7 +220,7 @@ var (
 // It is not necessarily iterable.
 type Indexable interface {
 	Value
-	Index(i int) Value // requires 0 <= i < Len()
+	Index(thread *Thread, i int) Value // requires 0 <= i < Len()
 	Len() int
 }
 
@@ -562,14 +562,14 @@ func (f Float) Unary(op syntax.Token) (Value, error) {
 // of a Starlark string as a Go string.
 type String string
 
-func (s String) String() string        { return syntax.Quote(string(s), false) }
-func (s String) GoString() string      { return string(s) }
-func (s String) Type() string          { return "string" }
-func (s String) Freeze()               {} // immutable
-func (s String) Truth() Bool           { return len(s) > 0 }
-func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
-func (s String) Len() int              { return len(s) } // bytes
-func (s String) Index(i int) Value     { return s[i : i+1] }
+func (s String) String() string                    { return syntax.Quote(string(s), false) }
+func (s String) GoString() string                  { return string(s) }
+func (s String) Type() string                      { return "string" }
+func (s String) Freeze()                           {} // immutable
+func (s String) Truth() Bool                       { return len(s) > 0 }
+func (s String) Hash() (uint32, error)             { return hashString(string(s)), nil }
+func (s String) Len() int                          { return len(s) } // bytes
+func (s String) Index(thread *Thread, i int) Value { return s[i : i+1] }
 
 func (s String) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -620,7 +620,7 @@ func (si stringElems) Truth() Bool           { return True }
 func (si stringElems) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable: %s", si.Type()) }
 func (si stringElems) Iterate() Iterator     { return &stringElemsIterator{si, 0} }
 func (si stringElems) Len() int              { return len(si.s) }
-func (si stringElems) Index(i int) Value {
+func (si stringElems) Index(thread *Thread, i int) Value {
 	if si.ords {
 		return MakeInt(int(si.s[i]))
 	} else {
@@ -639,7 +639,7 @@ func (it *stringElemsIterator) Next(p *Value) bool {
 	if it.i == len(it.si.s) {
 		return false
 	}
-	*p = it.si.Index(it.i)
+	*p = it.si.Index(NilThreadPlaceholder(), it.i)
 	it.i++
 	return true
 }
@@ -957,12 +957,12 @@ func (l *List) checkMutable(verb string) error {
 	return nil
 }
 
-func (l *List) String() string        { return toString(l) }
-func (l *List) Type() string          { return "list" }
-func (l *List) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: list") }
-func (l *List) Truth() Bool           { return l.Len() > 0 }
-func (l *List) Len() int              { return len(l.elems) }
-func (l *List) Index(i int) Value     { return l.elems[i] }
+func (l *List) String() string                    { return toString(l) }
+func (l *List) Type() string                      { return "list" }
+func (l *List) Hash() (uint32, error)             { return 0, fmt.Errorf("unhashable type: list") }
+func (l *List) Truth() Bool                       { return l.Len() > 0 }
+func (l *List) Len() int                          { return len(l.elems) }
+func (l *List) Index(thread *Thread, i int) Value { return l.elems[i] }
 
 func (l *List) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1073,8 +1073,8 @@ func (l *List) Clear(thread *Thread) error {
 // A Tuple represents a Starlark tuple value.
 type Tuple []Value
 
-func (t Tuple) Len() int          { return len(t) }
-func (t Tuple) Index(i int) Value { return t[i] }
+func (t Tuple) Len() int                          { return len(t) }
+func (t Tuple) Index(thread *Thread, i int) Value { return t[i] }
 
 func (t Tuple) Slice(start, end, step int) Value {
 	if step == 1 {
@@ -1631,13 +1631,13 @@ var (
 	_ Indexable  = Bytes("")
 )
 
-func (b Bytes) String() string        { return syntax.Quote(string(b), true) }
-func (b Bytes) Type() string          { return "bytes" }
-func (b Bytes) Freeze()               {} // immutable
-func (b Bytes) Truth() Bool           { return len(b) > 0 }
-func (b Bytes) Hash() (uint32, error) { return String(b).Hash() }
-func (b Bytes) Len() int              { return len(b) }
-func (b Bytes) Index(i int) Value     { return b[i : i+1] }
+func (b Bytes) String() string                    { return syntax.Quote(string(b), true) }
+func (b Bytes) Type() string                      { return "bytes" }
+func (b Bytes) Freeze()                           {} // immutable
+func (b Bytes) Truth() Bool                       { return len(b) > 0 }
+func (b Bytes) Hash() (uint32, error)             { return String(b).Hash() }
+func (b Bytes) Len() int                          { return len(b) }
+func (b Bytes) Index(thread *Thread, i int) Value { return b[i : i+1] }
 
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
