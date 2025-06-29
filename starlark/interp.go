@@ -60,10 +60,7 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 		return nil, thread.evalError(err)
 	}
 
-	if thread.cache == nil {
-		thread.cache = NewProgramStateDB()
-	}
-	cache := thread.cache
+	cache := &thread.cache
 	snapshot := cache.version
 	internedArgs := make([]Interned, fn.NumParams())
 	for i := range internedArgs {
@@ -204,7 +201,7 @@ loop:
 			y := stack[sp-1]
 			x := stack[sp-2]
 			sp -= 2
-			z, err2 := Binary(binop, x, y)
+			z, err2 := Binary(thread, binop, x, y)
 			if err2 != nil {
 				err = err2
 				break loop
@@ -246,7 +243,7 @@ loop:
 				}
 			}
 			if z == nil {
-				z, err = Binary(syntax.PLUS, x, y)
+				z, err = Binary(thread, syntax.PLUS, x, y)
 				if err != nil {
 					break loop
 				}
@@ -274,7 +271,7 @@ loop:
 				}
 			}
 			if z == nil {
-				z, err = Binary(syntax.PIPE, x, y)
+				z, err = Binary(thread, syntax.PIPE, x, y)
 				if err != nil {
 					break loop
 				}
@@ -491,6 +488,8 @@ loop:
 			elem := stack[sp-1]
 			list := stack[sp-2].(*List)
 			sp -= 2
+			list.read()
+			list.write()
 			list.elems = append(list.elems, elem)
 
 		case compile.SLICE:
@@ -499,7 +498,7 @@ loop:
 			hi := stack[sp-2]
 			step := stack[sp-1]
 			sp -= 4
-			res, err2 := slice(x, lo, hi, step)
+			res, err2 := slice(thread, x, lo, hi, step)
 			if err2 != nil {
 				err = err2
 				break loop
@@ -556,7 +555,7 @@ loop:
 			elems := make([]Value, n)
 			sp -= n
 			copy(elems, stack[sp:])
-			stack[sp] = NewList(elems)
+			stack[sp] = NewList(thread, elems)
 			sp++
 
 		case compile.MAKEFUNC:

@@ -24,6 +24,7 @@ func (l *List) Elements() iter.Seq[Value] {
 			l.itercount++
 			defer func() { l.itercount-- }()
 		}
+		l.read()
 		for _, x := range l.elems {
 			if !yield(x) {
 				break

@@ -67,7 +67,7 @@ type Thread struct {
 	locals map[string]interface{}
 
 	// cache stores state for function call memoization.
-	cache *ProgramStateDB
+	cache ProgramStateDB
 
 	// dependencies records reads and writes to globals, captured variables, and mutables.
 	dependencies Dependencies
@@ -628,11 +628,14 @@ func makeExprFunc(opts *syntax.FileOptions, expr syntax.Expr, env StringDict) (*
 func listExtend(x *List, y Iterable) {
 	if ylist, ok := y.(*List); ok {
 		// fast path: list += list
+		ylist.read()
+		x.write()
 		x.elems = append(x.elems, ylist.elems...)
 	} else {
 		iter := y.Iterate()
 		defer iter.Done()
 		var z Value
+		x.write()
 		for iter.Next(&z) {
 			x.elems = append(x.elems, z)
 		}
@@ -773,7 +776,7 @@ func Unary(op syntax.Token, x Value) (Value, error) {
 
 // Binary applies a strict binary operator (not AND or OR) to its operands.
 // For equality tests or ordered comparisons, use Compare instead.
-func Binary(op syntax.Token, x, y Value) (Value, error) {
+func Binary(thread *Thread, op syntax.Token, x, y Value) (Value, error) {
 	switch op {
 	case syntax.PLUS:
 		switch x := x.(type) {
@@ -806,9 +809,11 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 		case *List:
 			if y, ok := y.(*List); ok {
 				z := make([]Value, 0, x.Len()+y.Len())
+				x.read()
+				y.read()
 				z = append(z, x.elems...)
 				z = append(z, y.elems...)
-				return NewList(z), nil
+				return NewList(thread, z), nil
 			}
 		case Tuple:
 			if y, ok := y.(Tuple); ok {
@@ -868,11 +873,12 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			case Bytes:
 				return bytesRepeat(y, x)
 			case *List:
+				y.read()
 				elems, err := tupleRepeat(Tuple(y.elems), x)
 				if err != nil {
 					return nil, err
 				}
-				return NewList(elems), nil
+				return NewList(thread, elems), nil
 			case Tuple:
 				return tupleRepeat(y, x)
 			}
@@ -897,11 +903,12 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 			}
 		case *List:
 			if y, ok := y.(Int); ok {
+				x.read()
 				elems, err := tupleRepeat(Tuple(x.elems), y)
 				if err != nil {
 					return nil, err
 				}
-				return NewList(elems), nil
+				return NewList(thread, elems), nil
 			}
 		case Tuple:
 			if y, ok := y.(Int); ok {
@@ -1031,7 +1038,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 		}
 
 	case syntax.NOT_IN:
-		z, err := Binary(syntax.IN, x, y)
+		z, err := Binary(thread, syntax.IN, x, y)
 		if err != nil {
 			return nil, err
 		}
@@ -1040,6 +1047,7 @@ func Binary(op syntax.Token, x, y Value) (Value, error) {
 	case syntax.IN:
 		switch y := y.(type) {
 		case *List:
+			y.read()
 			for _, elem := range y.elems {
 				if eq, err := Equal(elem, x); err != nil {
 					return nil, err
@@ -1302,7 +1310,7 @@ func Call(thread *Thread, fn Value, args Tuple, kwargs []Tuple) (Value, error) {
 	return result, err
 }
 
-func slice(x, lo, hi, step_ Value) (Value, error) {
+func slice(thread *Thread, x, lo, hi, step_ Value) (Value, error) {
 	sliceable, ok := x.(Sliceable)
 	if !ok {
 		return nil, fmt.Errorf("invalid slice operand %s", x.Type())
@@ -1362,7 +1370,7 @@ func slice(x, lo, hi, step_ Value) (Value, error) {
 		}
 	}
 
-	return sliceable.Slice(start, end, step), nil
+	return sliceable.Slice(thread, start, end, step), nil
 }
 
 // From Hacker's Delight, section 2.8.

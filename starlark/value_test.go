@@ -35,7 +35,8 @@ func TestStringMethod(t *testing.T) {
 }
 
 func TestListAppend(t *testing.T) {
-	l := starlark.NewList(nil)
+	thread := &starlark.Thread{}
+	l := starlark.NewList(thread, nil)
 	l.Append(starlark.String("hello"))
 	res, ok := starlark.AsString(l.Index(0))
 	if !ok {

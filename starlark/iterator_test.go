@@ -44,7 +44,8 @@ func TestTupleElements(t *testing.T) {
 }
 
 func TestListElements(t *testing.T) {
-	list := NewList([]Value{MakeInt(1), MakeInt(2), MakeInt(3)})
+	thread := &Thread{}
+	list := NewList(thread, []Value{MakeInt(1), MakeInt(2), MakeInt(3)})
 
 	var got []string
 	for elem := range list.Elements() {

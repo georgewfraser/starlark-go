@@ -140,6 +140,7 @@ func TestExecFile(t *testing.T) {
 		"testdata/builtins.star",
 		"testdata/bytes.star",
 		"testdata/cache.star",
+		"testdata/cache_list.star",
 		"testdata/control.star",
 		"testdata/dict.star",
 		"testdata/float.star",
@@ -1059,11 +1060,12 @@ func TestDeps(t *testing.T) {
 // TestPanicSafety ensures that a panic from an application-defined
 // built-in may traverse the interpreter safely; see issue #411.
 func TestPanicSafety(t *testing.T) {
+	thread := new(starlark.Thread)
 	predeclared := starlark.StringDict{
 		"panic": starlark.NewBuiltin("panic", func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			panic(args[0])
 		}),
-		"list": starlark.NewList([]starlark.Value{starlark.MakeInt(0)}),
+		"list": starlark.NewList(thread, []starlark.Value{starlark.MakeInt(0)}),
 	}
 
 	// This program is executed twice, using the same Thread,
@@ -1086,7 +1088,6 @@ def main():
 
 main()
 `
-	thread := new(starlark.Thread)
 	for _, i := range []int{1, 2} {
 		// Use a func to limit the scope of recover.
 		func() {

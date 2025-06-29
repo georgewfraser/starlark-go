@@ -123,7 +123,7 @@ mutable.clear()
 assert.eq(mutable_len(), 0)
 
 ---
-load("assert.star", "assert")
+load("assert.star", "assert", "freeze")
 
 mutable = [1]
 
@@ -131,5 +131,5 @@ def try_to_set():
     mutable[0] = 1
 
 try_to_set()
-mutable.freeze()
+freeze(mutable)
 assert.fails(try_to_set, "cannot assign to element of frozen list")

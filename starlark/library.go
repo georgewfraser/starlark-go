@@ -309,7 +309,7 @@ func dict(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dir
-func dir(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dir(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("dir does not accept keyword arguments")
 	}
@@ -326,11 +326,11 @@ func dir(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	for i, name := range names {
 		elems[i] = String(name)
 	}
-	return NewList(elems), nil
+	return NewList(thread, elems), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#enumerate
-func enumerate(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func enumerate(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var iterable Iterable
 	var start int
 	if err := UnpackPositionalArgs("enumerate", args, kwargs, 1, &iterable, &start); err != nil {
@@ -362,7 +362,7 @@ func enumerate(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error)
 		}
 	}
 
-	return NewList(pairs), nil
+	return NewList(thread, pairs), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#fail
@@ -677,7 +677,7 @@ func len_(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list
-func list(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func list(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var iterable Iterable
 	if err := UnpackPositionalArgs("list", args, kwargs, 0, &iterable); err != nil {
 		return nil, err
@@ -694,7 +694,7 @@ func list(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 			elems = append(elems, x)
 		}
 	}
-	return NewList(elems), nil
+	return NewList(thread, elems), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#min
@@ -878,7 +878,7 @@ func rangeLen(start, stop, step int) int {
 	return 0
 }
 
-func (r rangeValue) Slice(start, end, step int) Value {
+func (r rangeValue) Slice(_ *Thread, start, end, step int) Value {
 	newStart := r.start + r.step*start
 	newStop := r.start + r.step*end
 	newStep := r.step * step
@@ -965,7 +965,7 @@ func repr(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#reversed
-func reversed(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func reversed(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var iterable Iterable
 	if err := UnpackPositionalArgs("reversed", args, kwargs, 1, &iterable); err != nil {
 		return nil, err
@@ -984,7 +984,7 @@ func reversed(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) 
 	for i := 0; i < n>>1; i++ {
 		elems[i], elems[n-1-i] = elems[n-1-i], elems[i]
 	}
-	return NewList(elems), nil
+	return NewList(thread, elems), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set
@@ -1051,7 +1051,7 @@ func sorted(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	} else {
 		sort.Stable(slice)
 	}
-	return NewList(slice.values), slice.err
+	return NewList(thread, slice.values), slice.err
 }
 
 type sortSlice struct {
@@ -1146,7 +1146,7 @@ func type_(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#zip
-func zip(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func zip(thread *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if len(kwargs) > 0 {
 		return nil, fmt.Errorf("zip does not accept keyword arguments")
 	}
@@ -1196,7 +1196,7 @@ func zip(_ *Thread, _ *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 			result = append(result, tuple)
 		}
 	}
-	return NewList(result), nil
+	return NewList(thread, result), nil
 }
 
 // ---- methods of built-in types ---
@@ -1226,7 +1226,7 @@ func dict_clear(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·items
-func dict_items(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_items(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -1235,15 +1235,15 @@ func dict_items(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 	for i, item := range items {
 		res[i] = item // convert [2]Value to Value
 	}
-	return NewList(res), nil
+	return NewList(thread, res), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·keys
-func dict_keys(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_keys(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
-	return NewList(b.Receiver().(*Dict).Keys()), nil
+	return NewList(thread, b.Receiver().(*Dict).Keys()), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·pop
@@ -1298,7 +1298,7 @@ func dict_setdefault(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, 
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·update
-func dict_update(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_update(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if len(args) > 1 {
 		return nil, fmt.Errorf("update: got %d arguments, want at most 1", len(args))
 	}
@@ -1309,7 +1309,7 @@ func dict_update(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#dict·update
-func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func dict_values(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0); err != nil {
 		return nil, err
 	}
@@ -1318,7 +1318,7 @@ func dict_values(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	for i, item := range items {
 		res[i] = item[1]
 	}
-	return NewList(res), nil
+	return NewList(thread, res), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#list·append
@@ -1331,6 +1331,8 @@ func list_append(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("append to"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	recv.read()
+	recv.write()
 	recv.elems = append(recv.elems, object)
 	return None, nil
 }
@@ -1374,6 +1376,7 @@ func list_index(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error
 		return nil, nameErr(b, err)
 	}
 
+	recv.read()
 	for i := start; i < end; i++ {
 		if eq, err := Equal(recv.elems[i], value); err != nil {
 			return nil, nameErr(b, err)
@@ -1402,11 +1405,15 @@ func list_insert(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 
 	if index >= recv.Len() {
 		// end
+		recv.read()
+		recv.write()
 		recv.elems = append(recv.elems, object)
 	} else {
 		if index < 0 {
 			index = 0 // start
 		}
+		recv.read()
+		recv.write()
 		recv.elems = append(recv.elems, nil)
 		copy(recv.elems[index+1:], recv.elems[index:]) // slide up one
 		recv.elems[index] = object
@@ -1424,6 +1431,8 @@ func list_remove(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, erro
 	if err := recv.checkMutable("remove from"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	recv.read()
+	recv.write()
 	for i, elem := range recv.elems {
 		if eq, err := Equal(elem, value); err != nil {
 			return nil, fmt.Errorf("remove: %v", err)
@@ -1454,6 +1463,8 @@ func list_pop(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, er
 	if err := list.checkMutable("pop from"); err != nil {
 		return nil, nameErr(b, err)
 	}
+	list.read()
+	list.write()
 	res := list.elems[i]
 	list.elems = append(list.elems[:i], list.elems[i+1:]...)
 	return res, nil
@@ -2053,7 +2064,7 @@ func string_upper(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·split
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·rsplit
-func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_split(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	recv := string(b.Receiver().(String))
 	var sep_ Value
 	maxsplit := -1
@@ -2098,7 +2109,7 @@ func string_split(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, err
 	for i, x := range res {
 		list[i] = String(x)
 	}
-	return NewList(list), nil
+	return NewList(thread, list), nil
 }
 
 // Precondition: max >= 0.
@@ -2156,7 +2167,7 @@ func splitspace(s string, max int) []string {
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#string·splitlines
-func string_splitlines(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
+func string_splitlines(thread *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value, error) {
 	var keepends bool
 	if err := UnpackPositionalArgs(b.Name(), args, kwargs, 0, &keepends); err != nil {
 		return nil, err
@@ -2177,7 +2188,7 @@ func string_splitlines(_ *Thread, b *Builtin, args Tuple, kwargs []Tuple) (Value
 	for i, x := range lines {
 		list[i] = String(x)
 	}
-	return NewList(list), nil
+	return NewList(thread, list), nil
 }
 
 // https://github.com/google/starlark-go/blob/master/doc/spec.md#set·add.

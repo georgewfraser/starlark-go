@@ -425,7 +425,7 @@ func decode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 				}
 			}
 			i++ // ']'
-			return starlark.NewList(elems)
+			return starlark.NewList(thread, elems)
 
 		case '{':
 			// object

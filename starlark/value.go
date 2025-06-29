@@ -231,7 +231,7 @@ type Sliceable interface {
 	// For negative strides (step < 0), -1 <= end <= start < n.
 	// The caller must ensure that the start and end indices are valid
 	// and that step is non-zero.
-	Slice(start, end, step int) Value
+	Slice(thread *Thread, start, end, step int) Value
 }
 
 // A HasSetIndex is an Indexable value whose elements may be assigned (x[i] = y).
@@ -568,7 +568,7 @@ func (s String) Hash() (uint32, error) { return hashString(string(s)), nil }
 func (s String) Len() int              { return len(s) } // bytes
 func (s String) Index(i int) Value     { return s[i : i+1] }
 
-func (s String) Slice(start, end, step int) Value {
+func (s String) Slice(_ *Thread, start, end, step int) Value {
 	if step == 1 {
 		return s[start:end]
 	}
@@ -925,17 +925,21 @@ func dictsEqual(x, y *Dict, depth int) (bool, error) {
 type List struct {
 	elems     []Value
 	frozen    bool
-	itercount uint32 // number of active iterators (ignored if frozen)
+	itercount uint32  // number of active iterators (ignored if frozen)
+	owner     *Thread // the thread that created this List
 	modified  uint64
 }
 
 // NewList returns a list containing the specified elements.
 // Callers should not subsequently modify elems.
-func NewList(elems []Value) *List { return &List{elems: elems} }
+func NewList(owner *Thread, elems []Value) *List {
+	return &List{elems: elems, owner: owner}
+}
 
 func (l *List) Freeze() {
 	if !l.frozen {
 		l.frozen = true
+		l.write()
 		for _, elem := range l.elems {
 			elem.Freeze()
 		}
@@ -958,13 +962,20 @@ func (l *List) String() string        { return toString(l) }
 func (l *List) Type() string          { return "list" }
 func (l *List) Hash() (uint32, error) { return 0, fmt.Errorf("unhashable type: list") }
 func (l *List) Truth() Bool           { return l.Len() > 0 }
-func (l *List) Len() int              { return len(l.elems) }
-func (l *List) Index(i int) Value     { return l.elems[i] }
+func (l *List) Len() int {
+	l.read()
+	return len(l.elems)
+}
+func (l *List) Index(i int) Value {
+	l.read()
+	return l.elems[i]
+}
 
-func (l *List) Slice(start, end, step int) Value {
+func (l *List) Slice(thread *Thread, start, end, step int) Value {
+	l.read()
 	if step == 1 {
 		elems := append([]Value{}, l.elems[start:end]...)
-		return NewList(elems)
+		return NewList(thread, elems)
 	}
 
 	sign := signum(step)
@@ -972,7 +983,7 @@ func (l *List) Slice(start, end, step int) Value {
 	for i := start; signum(end-i) == sign; i += step {
 		list = append(list, l.elems[i])
 	}
-	return NewList(list)
+	return NewList(thread, list)
 }
 
 func (l *List) Attr(name string) (Value, error) { return builtinAttr(l, name, listMethods) }
@@ -987,6 +998,8 @@ func (l *List) Iterate() Iterator {
 
 func (x *List) CompareSameType(op syntax.Token, y_ Value, depth int) (bool, error) {
 	y := y_.(*List)
+	x.read()
+	y.read()
 	// It's tempting to check x == y as an optimization here,
 	// but wrong because a list containing NaN is not equal to itself.
 	return sliceCompare(op, x.elems, y.elems, depth)
@@ -1017,12 +1030,27 @@ func sliceCompare(op syntax.Token, x, y []Value, depth int) (bool, error) {
 	return threeway(op, len(x)-len(y)), nil
 }
 
+func (l *List) read() {
+	if !l.frozen {
+		l.owner.dependencies.lists = append(l.owner.dependencies.lists, ListVersion{l, l.modified})
+	}
+}
+
+func (l *List) write() {
+	if !l.frozen {
+		l.owner.cache.version++
+		l.modified = l.owner.cache.version
+		l.owner.dependencies.lists = append(l.owner.dependencies.lists, ListVersion{l, l.modified})
+	}
+}
+
 type listIterator struct {
 	l *List
 	i int
 }
 
 func (it *listIterator) Next(p *Value) bool {
+	// l is marked as read when the iterator is created
 	if it.i < it.l.Len() {
 		*p = it.l.elems[it.i]
 		it.i++
@@ -1041,6 +1069,7 @@ func (l *List) SetIndex(i int, v Value) error {
 	if err := l.checkMutable("assign to element of"); err != nil {
 		return err
 	}
+	l.write()
 	l.elems[i] = v
 	return nil
 }
@@ -1049,6 +1078,7 @@ func (l *List) Append(v Value) error {
 	if err := l.checkMutable("append to"); err != nil {
 		return err
 	}
+	l.write()
 	l.elems = append(l.elems, v)
 	return nil
 }
@@ -1057,6 +1087,7 @@ func (l *List) Clear() error {
 	if err := l.checkMutable("clear"); err != nil {
 		return err
 	}
+	l.write()
 	for i := range l.elems {
 		l.elems[i] = nil // aid GC
 	}
@@ -1070,7 +1101,7 @@ type Tuple []Value
 func (t Tuple) Len() int          { return len(t) }
 func (t Tuple) Index(i int) Value { return t[i] }
 
-func (t Tuple) Slice(start, end, step int) Value {
+func (t Tuple) Slice(_ *Thread, start, end, step int) Value {
 	if step == 1 {
 		return t[start:end]
 	}
@@ -1356,6 +1387,7 @@ func writeValue(out *strings.Builder, x Value, path []Value) {
 		out.WriteString(syntax.Quote(string(x), false))
 
 	case *List:
+		x.read()
 		out.WriteByte('[')
 		if pathContains(path, x) {
 			out.WriteString("...") // list contains itself
@@ -1636,7 +1668,7 @@ func (b Bytes) Index(i int) Value     { return b[i : i+1] }
 func (b Bytes) Attr(name string) (Value, error) { return builtinAttr(b, name, bytesMethods) }
 func (b Bytes) AttrNames() []string             { return builtinAttrNames(bytesMethods) }
 
-func (b Bytes) Slice(start, end, step int) Value {
+func (b Bytes) Slice(_ *Thread, start, end, step int) Value {
 	if step == 1 {
 		return b[start:end]
 	}
