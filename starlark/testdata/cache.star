@@ -105,3 +105,17 @@ def f():
 assert.eq(f(), 1)
 mutable = 2
 assert.eq(f(), 2) # Modification of mutable invalidates g(), which is a dependency of f(), which invalidates f.
+
+---
+load("assert.star", "assert")
+
+s = sneaky()
+x = 1
+y = 2
+
+def copy_x_to_y():
+    y = x
+    return s()
+
+assert.eq(copy_x_to_y(), 1)
+assert.eq(copy_x_to_y(), 1) # cached because the function is idempotent

@@ -145,3 +145,18 @@ def list_is_true():
 assert.eq(list_is_true(), False)
 mutable.append(1)
 assert.eq(list_is_true(), True)
+
+---
+load("assert.star", "assert")
+
+s = sneaky()
+mutable = []
+
+def read_len_with_sneaky():
+    _ = len(mutable)
+    return s()
+
+assert.eq(read_len_with_sneaky(), 1)
+assert.eq(read_len_with_sneaky(), 1)  # cache holds while list is unchanged
+mutable.append(1)
+assert.eq(read_len_with_sneaky(), 2)  # modification busts the cache
