@@ -156,7 +156,7 @@ func encode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, k
 		case starlark.IterableMapping:
 			// e.g. dict (must have string keys)
 			buf.WriteByte('{')
-			items := x.Items()
+			items := x.Items(starlark.NilThreadPlaceholder())
 			for _, item := range items {
 				if _, ok := item[0].(starlark.String); !ok {
 					return fmt.Errorf("%s has %s key, want string", x.Type(), item[0].Type())
