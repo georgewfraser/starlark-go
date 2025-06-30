@@ -11,6 +11,8 @@ import (
 const CACHE_SIZE = (1 << 20) / (4 * 8) // 1 MB / (size of Record)
 
 type ProgramStateDB struct {
+	// inputs provides values for the input() builtin during execution.
+	inputs StringDict
 	// memo stores the cached results of previous function calls.
 	// It is an open-addressing hash table with linear probing. The
 	// table currently has a fixed size and does not resize or evict
@@ -26,14 +28,14 @@ type ProgramStateDB struct {
 // The interpreter records these slices while executing a function body
 // and the cache uses them to detect invalidation when values change.
 type Dependencies struct {
-	predeclared []PredeclaredValue
-	globals     []VariableValue
-	cells       []CellValue
-	lists       []ListVersion
-	dicts       []DictVersion
-	sets        []SetVersion
-	calls       []*Record
-	effects     bool // true for builtin functions that have side effects that are not captured in the dependencies.
+	inputs  []InputValue
+	globals []VariableValue
+	cells   []CellValue
+	lists   []ListVersion
+	dicts   []DictVersion
+	sets    []SetVersion
+	calls   []*Record
+	effects bool // true for builtin functions that have side effects that are not captured in the dependencies.
 }
 
 // Record memoizes the result of a function call along with the values of
@@ -49,9 +51,9 @@ type Record struct {
 	verified uint64 // ProgramStateDB.version when this record was last verified against dependencies, or 0 if it has been shown to be stale.
 }
 
-// PredeclaredValue records the value observed for a predeclared variable during execution.
-// Predeclared variables are immutable and looked up by name in the module's predeclared dictionary.
-type PredeclaredValue struct {
+// InputValue records the value observed for an input during execution.
+// Inputs are looked up by name in the Thread.inputs dictionary.
+type InputValue struct {
 	name  string
 	value Interned
 }
@@ -160,9 +162,9 @@ func (db *ProgramStateDB) validate(rec *Record) bool {
 	if rec.verified == 0 {
 		return false
 	}
-	// predeclared
-	for _, p := range rec.deps.predeclared {
-		if !db.Intern(rec.function.module.predeclared[p.name]).Eq(p.value) {
+	// inputs
+	for _, inp := range rec.deps.inputs {
+		if v, ok := db.inputs[inp.name]; !ok || !db.Intern(v).Eq(inp.value) {
 			rec.verified = 0
 			return false
 		}

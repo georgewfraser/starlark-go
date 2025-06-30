@@ -201,22 +201,23 @@ func TestIncrementalExecution(t *testing.T) {
 	filename := "incremental.star"
 	source := `
 def f():
-	_ = x
-	return s()
+       _ = input("x")
+       return s()
 
 y = f()`
 	predeclared := starlark.StringDict{
-		"x": starlark.MakeInt(1),
-		"s": &sneaky{},
+		"input": starlark.InputBuiltin,
+		"s":     &sneaky{},
 	}
 	prog, err := starlark.PrepareExecFile(opts, filename, source, predeclared)
 	if err != nil {
 		t.Fatalf("PrepareExecFile: %v", err)
 	}
+	inputs := starlark.StringDict{"x": starlark.MakeInt(1)}
 	thread := new(starlark.Thread)
 
-	// Execute program once, expecting sneaky() to return 1.
-	globals, err := starlark.ExecPreparedProgram(thread, prog, predeclared)
+	// Execute program once, expecting s() to return 1.
+	globals, err := starlark.ExecPreparedProgram(thread, prog, inputs)
 	if err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
@@ -224,8 +225,8 @@ y = f()`
 		t.Errorf("after first exec, y = %s, want %s", got, want)
 	}
 
-	// Execute program again, expecting sneaky() to return 1 again because predeclared has not changed.
-	globals, err = starlark.ExecPreparedProgram(thread, prog, predeclared)
+	// Execute program again, expecting s() to return 1 again because inputs have not changed.
+	globals, err = starlark.ExecPreparedProgram(thread, prog, inputs)
 	if err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
@@ -233,9 +234,9 @@ y = f()`
 		t.Errorf("after second exec, y = %s, want %s", got, want)
 	}
 
-	// Now change predeclared, and execute again, expecting sneaky() to return 2.
-	predeclared["x"] = starlark.MakeInt(2)
-	globals, err = starlark.ExecPreparedProgram(thread, prog, predeclared)
+	// Now change inputs, and execute again, expecting s() to return 2.
+	inputs["x"] = starlark.MakeInt(2)
+	globals, err = starlark.ExecPreparedProgram(thread, prog, inputs)
 	if err != nil {
 		t.Fatalf("Exec: %v", err)
 	}

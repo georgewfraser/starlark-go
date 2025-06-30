@@ -690,10 +690,6 @@ loop:
 				err = fmt.Errorf("internal error: predeclared variable %s is uninitialized", name)
 				break loop
 			}
-			thread.dependencies.predeclared = append(thread.dependencies.predeclared, PredeclaredValue{
-				name:  name,
-				value: cache.Intern(x),
-			})
 			stack[sp] = x
 			sp++
 

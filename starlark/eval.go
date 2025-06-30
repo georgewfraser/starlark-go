@@ -378,8 +378,12 @@ func PrepareExecFile(opts *syntax.FileOptions, filename string, src interface{},
 
 // Exec executes the prepared program against the specified predeclared environment,
 // using incremental execution to only execute the portions of the program that are invalidated by the changes in the predeclared environment.
-func ExecPreparedProgram(thread *Thread, toplevel *Function, predeclared StringDict) (StringDict, error) {
-	// predeclared globals may have changed, re-validate on every fresh program execution.
+
+// Exec executes the prepared program using the provided inputs.
+// The program's predeclared environment is fixed at preparation time.
+func ExecPreparedProgram(thread *Thread, toplevel *Function, inputs StringDict) (StringDict, error) {
+	// Update inputs.
+	thread.cache.inputs = inputs
 	thread.cache.version++
 
 	// Call the toplevel function.
