@@ -147,6 +147,7 @@ func TestExecFile(t *testing.T) {
 		"testdata/dict.star",
 		"testdata/float.star",
 		"testdata/function.star",
+		"testdata/input.star",
 		"testdata/int.star",
 		"testdata/json.star",
 		"testdata/list.star",
@@ -168,6 +169,7 @@ func TestExecFile(t *testing.T) {
 				"fibonacci": fib{},
 				"struct":    starlark.NewBuiltin("struct", starlarkstruct.Make),
 				"sneaky":    starlark.NewBuiltin("sneaky", newSneaky),
+				"input":     starlark.InputBuiltin,
 			}
 
 			opts := getOptions(chunk.Source)
@@ -201,7 +203,7 @@ func TestIncrementalExecution(t *testing.T) {
 	filename := "incremental.star"
 	source := `
 def f():
-       _ = input("x")
+       _ = input("x").value
        return s()
 
 y = f()`
