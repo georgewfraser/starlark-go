@@ -111,6 +111,49 @@ func (db *ProgramStateDB) Value(value Interned) Value {
 	return value.value
 }
 
+// Input provides access to an input value in the ProgramStateDB.
+// It records dependencies on reads and writes of the input.
+type Input struct {
+	name  string
+	owner *Thread
+}
+
+func (db *ProgramStateDB) Input(thread *Thread, name string, def Value) *Input {
+	if db.inputs == nil {
+		db.inputs = make(StringDict)
+	}
+	if _, ok := db.inputs[name]; !ok && def != None {
+		db.inputs[name] = def
+	}
+	return &Input{name: name, owner: thread}
+}
+
+// Value returns the current value of the input, applying the default if needed.
+func (in *Input) Value() Value {
+	db := &in.owner.cache
+	v, ok := db.inputs[in.name]
+	if !ok {
+		return None
+	}
+	in.record(db, v)
+	return v
+}
+
+// Update sets the value of the input and records the dependency.
+func (in *Input) Update(val Value) {
+	db := &in.owner.cache
+	db.version++
+	db.inputs[in.name] = val
+	in.record(db, val)
+}
+
+func (in *Input) record(db *ProgramStateDB, val Value) {
+	in.owner.dependencies.inputs = append(in.owner.dependencies.inputs, InputValue{
+		name:  in.name,
+		value: db.Intern(val),
+	})
+}
+
 func (db *ProgramStateDB) Get(function *Function, args []Interned) *Record {
 	idx := hashKey(function, args)
 	for i := 0; i < CACHE_SIZE; i++ {
